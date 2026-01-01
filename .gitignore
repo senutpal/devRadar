@@ -45,3 +45,4 @@ coverage/
 
 # Docker
 docker-compose.override.yml
+apps/server/src/generated/

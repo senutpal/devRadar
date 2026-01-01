@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 /**
  * User status schema.
@@ -57,7 +57,7 @@ export const WebSocketMessageSchema = z.object({
   type: MessageTypeSchema,
   payload: z.unknown(),
   timestamp: z.number().int().positive(),
-  correlationId: z.string().uuid().optional(),
+  correlationId: z.uuid().optional(),
 });
 
 /**

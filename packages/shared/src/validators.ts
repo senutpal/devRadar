@@ -8,7 +8,7 @@ export const UserStatusTypeSchema = z.enum(['online', 'idle', 'dnd', 'offline'])
 /**
  * Tier schema.
  */
-export const TierSchema = z.enum(['HACKER', 'PRO', 'TEAM']);
+export const TierSchema = z.enum(['FREE', 'PRO', 'TEAM']);
 
 /**
  * Role schema.

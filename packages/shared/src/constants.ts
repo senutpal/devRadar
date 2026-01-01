@@ -50,38 +50,28 @@ export const DEFAULT_BLACKLISTED_PATTERNS = [
 
 /**
  * Tier feature flags.
+ * Higher tiers inherit all features from lower tiers.
  */
+const FREE_FEATURES = ['presence', 'friends', 'globalLeaderboard'] as const;
+const PRO_ADDITIONAL = ['ghostMode', 'customEmoji', 'history30d', 'themes'] as const;
+const TEAM_ADDITIONAL = [
+  'conflictRadar',
+  'privateInstance',
+  'slackIntegration',
+  'analytics',
+] as const;
+
 export const TIER_FEATURES = {
-  HACKER: ['presence', 'friends', 'globalLeaderboard'] as const,
-  PRO: [
-    'presence',
-    'friends',
-    'globalLeaderboard',
-    'ghostMode',
-    'customEmoji',
-    'history30d',
-    'themes',
-  ] as const,
-  TEAM: [
-    'presence',
-    'friends',
-    'globalLeaderboard',
-    'ghostMode',
-    'customEmoji',
-    'history30d',
-    'themes',
-    'conflictRadar',
-    'privateInstance',
-    'slackIntegration',
-    'analytics',
-  ] as const,
+  FREE: FREE_FEATURES,
+  PRO: [...FREE_FEATURES, ...PRO_ADDITIONAL] as const,
+  TEAM: [...FREE_FEATURES, ...PRO_ADDITIONAL, ...TEAM_ADDITIONAL] as const,
 } as const;
 
 /**
  * API rate limits per tier (requests per minute).
  */
 export const RATE_LIMITS = {
-  HACKER: 60,
+  FREE: 60,
   PRO: 120,
   TEAM: 300,
 } as const;

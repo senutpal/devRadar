@@ -1,7 +1,8 @@
 /**
- * Presence TTL in seconds (45 seconds).
+ * Presence TTL in seconds (60 seconds).
+ * Set to 2x HEARTBEAT_INTERVAL to tolerate missed heartbeats.
  */
-export const PRESENCE_TTL_SECONDS = 45;
+export const PRESENCE_TTL_SECONDS = 60;
 
 /**
  * Heartbeat interval in milliseconds (30 seconds).

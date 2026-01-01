@@ -26,6 +26,19 @@ export type MessageType =
   | 'HEARTBEAT';
 
 /**
+ * Unix timestamp in milliseconds (value returned by Date.now()).
+ */
+export type EpochMillis = number;
+
+/**
+ * Intensity value constrained to 0-100 range.
+ * Represents coding intensity based on keystroke velocity.
+ * @min 0
+ * @max 100
+ */
+export type Intensity = number & { readonly __brand: 'Intensity' };
+
+/**
  * Activity payload representing coding activity.
  */
 export interface ActivityPayload {
@@ -39,8 +52,12 @@ export interface ActivityPayload {
   workspace?: string;
   /** Session duration in seconds */
   sessionDuration: number;
-  /** Coding intensity 0-100 (keystroke velocity) */
-  intensity?: number;
+  /**
+   * Coding intensity (keystroke velocity).
+   * @min 0
+   * @max 100
+   */
+  intensity?: Intensity;
 }
 
 /**
@@ -50,7 +67,8 @@ export interface UserStatus {
   userId: string;
   status: UserStatusType;
   activity?: ActivityPayload;
-  updatedAt: number;
+  /** Last update timestamp in milliseconds since Unix epoch (Date.now()) */
+  updatedAt: EpochMillis;
 }
 
 /**
@@ -59,7 +77,8 @@ export interface UserStatus {
 export interface WebSocketMessage<T = unknown> {
   type: MessageType;
   payload: T;
-  timestamp: number;
+  /** Message timestamp in milliseconds since Unix epoch (Date.now()) */
+  timestamp: EpochMillis;
   /** Optional correlation ID for request-response patterns */
   correlationId?: string;
 }

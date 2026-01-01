@@ -6,7 +6,7 @@ export type UserStatusType = 'online' | 'idle' | 'dnd' | 'offline';
 /**
  * User subscription tier.
  */
-export type TierType = 'HACKER' | 'PRO' | 'TEAM';
+export type TierType = 'FREE' | 'PRO' | 'TEAM';
 
 /**
  * Team member role.
@@ -94,6 +94,7 @@ export interface UserDTO {
   avatarUrl: string | null;
   tier: TierType;
   privacyMode: boolean;
+  /** Account creation timestamp as ISO 8601 / RFC3339 string (e.g., "2024-01-01T12:00:00Z") */
   createdAt: string;
 }
 
@@ -111,6 +112,7 @@ export interface PokePayload {
  */
 export interface ConflictAlertPayload {
   fileHash: string;
+  /** Array of user IDs currently editing this file */
   editors: string[];
   teamId: string;
 }

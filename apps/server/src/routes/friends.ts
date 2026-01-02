@@ -247,7 +247,7 @@ export function friendRoutes(app: FastifyInstance): void {
 
       return reply.status(201).send({
         data: {
-          id: follow.id,
+          followerId: userId,
           followingId: targetUserId,
           username: targetUser.username,
           createdAt: follow.createdAt.toISOString(),
@@ -288,7 +288,12 @@ export function friendRoutes(app: FastifyInstance): void {
       }
 
       await db.follow.delete({
-        where: { id: follow.id },
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: targetUserId,
+          },
+        },
       });
 
       logger.info({ userId, targetUserId }, 'User unfollowed');
@@ -314,27 +319,14 @@ export function friendRoutes(app: FastifyInstance): void {
 
       const { id: targetUserId } = paramsResult.data;
 
-      // Get users both are following
-      const myFollowing = await db.follow.findMany({
-        where: { followerId: userId },
-        select: { followingId: true },
-      });
-
-      const theirFollowing = await db.follow.findMany({
-        where: { followerId: targetUserId },
-        select: { followingId: true },
-      });
-
-      const myFollowingIds = new Set(
-        myFollowing.map((f: { followingId: string }) => f.followingId)
-      );
-      const mutualIds = theirFollowing
-        .filter((f: { followingId: string }) => myFollowingIds.has(f.followingId))
-        .map((f: { followingId: string }) => f.followingId);
-
-      // Get user details for mutual friends
+      // Single efficient query: find users followed by BOTH userId AND targetUserId
       const mutualFriends = await db.user.findMany({
-        where: { id: { in: mutualIds } },
+        where: {
+          AND: [
+            { followers: { some: { followerId: userId } } },
+            { followers: { some: { followerId: targetUserId } } },
+          ],
+        },
         select: {
           id: true,
           username: true,

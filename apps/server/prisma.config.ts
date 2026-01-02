@@ -22,5 +22,6 @@ export default defineConfig({
   // Database connection for Prisma CLI (migrate, db push, studio)
   datasource: {
     url: env('DATABASE_URL'),
+    shadowDatabaseUrl: env('SHADOW_DATABASE_URL'),
   },
 });

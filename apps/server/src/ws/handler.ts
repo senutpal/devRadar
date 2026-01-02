@@ -39,7 +39,7 @@ const InboundMessageSchema = z.object({
   type: z.enum(['HEARTBEAT', 'POKE', 'SUBSCRIBE', 'UNSUBSCRIBE']),
   payload: z.unknown(),
   timestamp: z.number().int().positive(),
-  correlationId: z.string().optional(),
+  correlationId: z.string().uuid().optional(),
 });
 
 /**
@@ -54,6 +54,16 @@ const HeartbeatMessageSchema = z.object({
  * Active WebSocket connections mapped by userId.
  */
 const connections = new Map<string, AuthenticatedWebSocket>();
+
+/**
+ * Channel subscription tracking: channel -> Set of userIds subscribed.
+ */
+const channelSubscriptions = new Map<string, Set<string>>();
+
+/**
+ * Flag to track if global message handler is initialized.
+ */
+let globalHandlerInitialized = false;
 
 /**
  * Send a message to a WebSocket client.
@@ -102,29 +112,88 @@ async function getUserFriendIds(userId: string): Promise<string[]> {
 }
 
 /**
+ * Initialize global Redis message handler (called once).
+ */
+function initializeGlobalMessageHandler(): void {
+  if (globalHandlerInitialized) return;
+
+  const subscriber = getRedisSubscriber();
+
+  subscriber.on('message', (channel: string, messageData: string) => {
+    try {
+      const data = JSON.parse(messageData) as FriendStatusPayload;
+      const subscribedUserIds = channelSubscriptions.get(channel);
+
+      if (!subscribedUserIds) return;
+
+      // Route message to all subscribed connections
+      for (const userId of subscribedUserIds) {
+        const ws = connections.get(userId);
+        if (ws && ws.readyState === ws.OPEN) {
+          send(ws, 'FRIEND_STATUS', data);
+        }
+      }
+    } catch (error) {
+      logger.error({ error, channel }, 'Failed to parse presence message');
+    }
+  });
+
+  globalHandlerInitialized = true;
+  logger.debug('Global Redis message handler initialized');
+}
+
+/**
  * Subscribe to friend presence updates via Redis pub/sub.
  */
 async function subscribeToFriends(ws: AuthenticatedWebSocket): Promise<void> {
   const subscriber = getRedisSubscriber();
 
+  // Ensure global handler is set up
+  initializeGlobalMessageHandler();
+
+  // Subscribe to friend channels
   for (const friendId of ws.friendIds) {
     const channel = REDIS_KEYS.presenceChannel(friendId);
 
-    // Subscribe to channel
-    await subscriber.subscribe(channel);
-
-    logger.debug({ userId: ws.userId, friendId, channel }, 'Subscribed to friend presence');
+    // Track subscription
+    let subscribers = channelSubscriptions.get(channel);
+    if (!subscribers) {
+      subscribers = new Set();
+      channelSubscriptions.set(channel, subscribers);
+      // First subscriber - actually subscribe to Redis
+      await subscriber.subscribe(channel);
+      logger.debug({ channel }, 'Subscribed to Redis channel');
+    }
+    subscribers.add(ws.userId);
   }
 
-  // Handle incoming presence updates
-  subscriber.on('message', (channel: string, messageData: string) => {
-    try {
-      const data = JSON.parse(messageData) as FriendStatusPayload;
-      send(ws, 'FRIEND_STATUS', data);
-    } catch (error) {
-      logger.error({ error, channel }, 'Failed to parse presence message');
+  logger.debug(
+    { userId: ws.userId, friendCount: ws.friendIds.length },
+    'User subscribed to friend presence'
+  );
+}
+
+/**
+ * Unsubscribe from friend presence channels.
+ */
+async function unsubscribeFromFriends(ws: AuthenticatedWebSocket): Promise<void> {
+  const subscriber = getRedisSubscriber();
+
+  for (const friendId of ws.friendIds) {
+    const channel = REDIS_KEYS.presenceChannel(friendId);
+    const subscribers = channelSubscriptions.get(channel);
+
+    if (subscribers) {
+      subscribers.delete(ws.userId);
+
+      // Last subscriber - unsubscribe from Redis
+      if (subscribers.size === 0) {
+        channelSubscriptions.delete(channel);
+        await subscriber.unsubscribe(channel);
+        logger.debug({ channel }, 'Unsubscribed from Redis channel');
+      }
     }
-  });
+  }
 }
 
 /**
@@ -226,8 +295,19 @@ async function handleMessage(ws: AuthenticatedWebSocket, data: string): Promise<
         handlePoke(ws, payload, correlationId);
         break;
 
+      case 'SUBSCRIBE':
+      case 'UNSUBSCRIBE':
+        // These message types are handled at connection level, not per-message
+        sendError(
+          ws,
+          'NOT_IMPLEMENTED',
+          'Dynamic subscription changes are not yet supported',
+          correlationId
+        );
+        break;
+
       default:
-        sendError(ws, 'UNKNOWN_TYPE', `Unknown message type: ${type}`, correlationId);
+        sendError(ws, 'UNKNOWN_TYPE', `Unknown message type: ${String(type)}`, correlationId);
     }
   } catch (error) {
     log.error({ error }, 'Error handling WebSocket message');
@@ -258,110 +338,117 @@ async function handleClose(ws: AuthenticatedWebSocket, code: number): Promise<vo
     }
   }, 60_000);
 
-  // Unsubscribe from friend channels
-  const subscriber = getRedisSubscriber();
-  for (const friendId of ws.friendIds) {
-    const channel = REDIS_KEYS.presenceChannel(friendId);
-    await subscriber.unsubscribe(channel);
-  }
+  // Unsubscribe from friend channels using the global subscription tracker
+  await unsubscribeFromFriends(ws);
 }
 
 /**
  * Register WebSocket handler with Fastify.
  */
 export function registerWebSocketHandler(app: FastifyInstance): void {
-  app.get('/ws', { websocket: true }, async (socket: WsSocket, request: FastifyRequest) => {
-    const ws = socket as AuthenticatedWebSocket;
+  app.get(
+    '/ws',
+    {
+      websocket: true,
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (socket: WsSocket, request: FastifyRequest) => {
+      const ws = socket as AuthenticatedWebSocket;
 
-    try {
-      // Extract token from query string
-      const token = (request.query as Record<string, string>).token;
-
-      if (!token) {
-        ws.close(WsCloseCodes.UNAUTHORIZED, 'Token required');
-        return;
-      }
-
-      // Verify JWT
-      let decoded: { userId: string };
       try {
-        decoded = await request.jwtVerify<{ userId: string }>({ onlyCookie: false });
-      } catch {
-        // Try from query token as header might not be available
+        // Extract token from query string
+        const token = (request.query as Record<string, string>).token;
+
+        if (!token) {
+          ws.close(WsCloseCodes.UNAUTHORIZED, 'Token required');
+          return;
+        }
+
+        // Verify JWT from query parameter
+        // (WebSocket connections from browsers can't set Authorization headers)
+        let decoded: { userId: string };
         try {
           decoded = app.jwt.verify<{ userId: string }>(token);
         } catch {
           ws.close(WsCloseCodes.INVALID_TOKEN, 'Invalid token');
           return;
         }
-      }
 
-      const { userId } = decoded;
+        const { userId } = decoded;
 
-      // Set up authenticated connection
-      ws.userId = userId;
-      ws.isAuthenticated = true;
-      ws.connectedAt = Date.now();
-      ws.lastHeartbeat = Date.now();
+        // Set up authenticated connection
+        ws.userId = userId;
+        ws.isAuthenticated = true;
+        ws.connectedAt = Date.now();
+        ws.lastHeartbeat = Date.now();
 
-      // Get user's friends
-      ws.friendIds = await getUserFriendIds(userId);
+        // Get user's friends
+        ws.friendIds = await getUserFriendIds(userId);
 
-      // Store connection
-      const existingConnection = connections.get(userId);
-      if (existingConnection) {
-        existingConnection.close(WsCloseCodes.GOING_AWAY, 'New connection established');
-      }
-      connections.set(userId, ws);
-
-      // Subscribe to friend presence updates
-      await subscribeToFriends(ws);
-
-      // Get initial friend presences
-      const friendPresences = await getPresences(ws.friendIds);
-
-      // Send connected message with initial friend statuses
-      const connectedPayload: ConnectedPayload = {
-        userId,
-        friendCount: ws.friendIds.length,
-      };
-      send(ws, 'CONNECTED', connectedPayload);
-
-      // Send initial friend statuses
-      const presenceEntries = Array.from(friendPresences.entries());
-      for (const [friendId, presence] of presenceEntries) {
-        const payload: FriendStatusPayload = {
-          userId: friendId,
-          status: presence.status as FriendStatusPayload['status'],
-          updatedAt: presence.updatedAt,
-        };
-        if (presence.activity) {
-          payload.activity = presence.activity as unknown as FriendStatusPayload['activity'];
+        // Store connection
+        const existingConnection = connections.get(userId);
+        if (existingConnection) {
+          existingConnection.close(WsCloseCodes.GOING_AWAY, 'New connection established');
         }
-        send(ws, 'FRIEND_STATUS', payload);
+        connections.set(userId, ws);
+
+        // Subscribe to friend presence updates
+        await subscribeToFriends(ws);
+
+        // Get initial friend presences
+        const friendPresences = await getPresences(ws.friendIds);
+
+        // Send connected message with initial friend statuses
+        const connectedPayload: ConnectedPayload = {
+          userId,
+          friendCount: ws.friendIds.length,
+        };
+        send(ws, 'CONNECTED', connectedPayload);
+
+        // Send initial friend statuses
+        const presenceEntries = Array.from(friendPresences.entries());
+        for (const [friendId, presence] of presenceEntries) {
+          const payload: FriendStatusPayload = {
+            userId: friendId,
+            status: presence.status as FriendStatusPayload['status'],
+            updatedAt: presence.updatedAt,
+          };
+          if (presence.activity) {
+            payload.activity = presence.activity as unknown as FriendStatusPayload['activity'];
+          }
+          send(ws, 'FRIEND_STATUS', payload);
+        }
+
+        logger.info(
+          { userId, friendCount: ws.friendIds.length },
+          'WebSocket connection established'
+        );
+
+        // Handle messages
+        ws.on('message', (data: Buffer) => {
+          void handleMessage(ws, data.toString());
+        });
+
+        // Handle close
+        ws.on('close', (closeCode: number) => {
+          void handleClose(ws, closeCode);
+        });
+
+        // Handle errors
+        ws.on('error', (error: Error) => {
+          logger.error({ error, userId }, 'WebSocket error');
+        });
+      } catch (error) {
+        logger.error({ error }, 'WebSocket connection error');
+        ws.close(WsCloseCodes.SERVER_ERROR, 'Internal server error');
       }
-
-      logger.info({ userId, friendCount: ws.friendIds.length }, 'WebSocket connection established');
-
-      // Handle messages
-      ws.on('message', (data: Buffer) => {
-        void handleMessage(ws, data.toString());
-      });
-
-      // Handle close
-      ws.on('close', (closeCode: number) => {
-        void handleClose(ws, closeCode);
-      });
-
-      // Handle errors
-      ws.on('error', (error: Error) => {
-        logger.error({ error, userId }, 'WebSocket error');
-      });
-    } catch (error) {
-      logger.error({ error }, 'WebSocket connection error');
-      ws.close(WsCloseCodes.SERVER_ERROR, 'Internal server error');
     }
-  });
+  );
 
   logger.info('WebSocket handler registered at /ws');
 }

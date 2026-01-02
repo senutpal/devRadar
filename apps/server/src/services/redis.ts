@@ -115,15 +115,36 @@ export async function connectRedis(): Promise<void> {
  * Call this during graceful shutdown.
  */
 export async function disconnectRedis(): Promise<void> {
-  const clients = [commandClient, subscribeClient, publishClient].filter(Boolean) as Redis[];
+  const clients = [
+    { name: 'command', client: commandClient },
+    { name: 'subscribe', client: subscribeClient },
+    { name: 'publish', client: publishClient },
+  ].filter((c) => c.client !== null);
 
-  await Promise.all(clients.map((client) => client.quit()));
+  const results = await Promise.allSettled(
+    clients.map(async ({ name, client }) => {
+      try {
+        if (client) {
+          await client.quit();
+        }
+      } catch (error: unknown) {
+        logger.warn({ error, client: name }, 'Error closing Redis client');
+        throw error;
+      }
+    })
+  );
 
+  // Always nullify clients regardless of quit success
   commandClient = null;
   subscribeClient = null;
   publishClient = null;
 
-  logger.info('Redis connections closed');
+  const failures = results.filter((r) => r.status === 'rejected');
+  if (failures.length > 0) {
+    logger.warn({ failureCount: failures.length }, 'Redis disconnected with some errors');
+  } else {
+    logger.info('Redis connections closed');
+  }
 }
 
 /**
@@ -152,6 +173,7 @@ interface PresenceData {
 
 /**
  * Set user presence with TTL.
+ * Only publishes to Redis if presence data has actually changed (throttling).
  *
  * @param userId - User ID
  * @param data - Presence data
@@ -160,11 +182,27 @@ export async function setPresence(userId: string, data: PresenceData): Promise<v
   const redis = getRedis();
   const key = REDIS_KEYS.presence(userId);
 
+  // Get existing presence to check if it changed
+  const existing = await redis.get(key);
+  const existingData = existing ? (JSON.parse(existing) as PresenceData) : null;
+
+  // Always update TTL with new data
   await redis.setex(key, PRESENCE_TTL_SECONDS, JSON.stringify(data));
 
-  // Publish presence update for real-time subscribers
-  const pub = getRedisPublisher();
-  await pub.publish(REDIS_KEYS.presenceChannel(userId), JSON.stringify(data));
+  // Only publish if status or activity actually changed (throttle unchanged heartbeats)
+  const hasChanged =
+    existingData?.status !== data.status ||
+    JSON.stringify(existingData.activity) !== JSON.stringify(data.activity);
+
+  if (hasChanged) {
+    // Fire-and-forget: don't await publish to avoid blocking on pub/sub failures
+    const pub = getRedisPublisher();
+    pub
+      .publish(REDIS_KEYS.presenceChannel(userId), JSON.stringify(data))
+      .catch((error: unknown) => {
+        logger.warn({ error, userId }, 'Failed to publish presence update');
+      });
+  }
 }
 
 /**
@@ -230,4 +268,40 @@ export async function getPresences(userIds: string[]): Promise<Map<string, Prese
   });
 
   return presenceMap;
+}
+
+// ===================
+// Token Blacklist Helpers
+// ===================
+
+const TOKEN_BLACKLIST_PREFIX = 'blacklist:';
+
+/**
+ * Add a token to the blacklist (for logout/revocation).
+ *
+ * @param token - JWT token or its jti to blacklist
+ * @param ttlSeconds - TTL in seconds (should match remaining token expiry)
+ */
+export async function blacklistToken(token: string, ttlSeconds: number): Promise<void> {
+  if (ttlSeconds <= 0) return; // Token already expired
+
+  const redis = getRedis();
+  const key = `${TOKEN_BLACKLIST_PREFIX}${token}`;
+
+  await redis.setex(key, ttlSeconds, '1');
+  logger.debug({ ttlSeconds }, 'Token blacklisted');
+}
+
+/**
+ * Check if a token is blacklisted.
+ *
+ * @param token - JWT token or its jti to check
+ * @returns true if token is blacklisted
+ */
+export async function isTokenBlacklisted(token: string): Promise<boolean> {
+  const redis = getRedis();
+  const key = `${TOKEN_BLACKLIST_PREFIX}${token}`;
+
+  const exists = await redis.exists(key);
+  return exists === 1;
 }

@@ -35,7 +35,19 @@ export abstract class AppError extends Error {
     if (options?.details) {
       this.details = options.details;
     }
-    Error.captureStackTrace(this, this.constructor);
+    // V8-specific: guard against environments without captureStackTrace
+    if (
+      typeof (Error as unknown as { captureStackTrace?: unknown }).captureStackTrace === 'function'
+    ) {
+      (
+        Error as unknown as { captureStackTrace: (target: Error, constructor: unknown) => void }
+      ).captureStackTrace(this, this.constructor);
+    } else {
+      const fallbackStack = new Error().stack;
+      if (fallbackStack) {
+        this.stack = fallbackStack;
+      }
+    }
   }
 
   /**
@@ -131,6 +143,13 @@ export class ConflictError extends AppError {
   readonly code = 'CONFLICT';
   readonly statusCode = 409;
   readonly isOperational = true;
+
+  constructor(
+    message = 'Conflict',
+    options?: { cause?: Error; details?: Record<string, unknown> }
+  ) {
+    super(message, options);
+  }
 }
 
 /**
@@ -149,6 +168,17 @@ export class RateLimitError extends AppError {
     if (retryAfter !== undefined) {
       this.retryAfter = retryAfter;
     }
+  }
+
+  /**
+   * Override toJSON to include retryAfter in API responses.
+   */
+  override toJSON(): Record<string, unknown> {
+    const json = super.toJSON();
+    if (this.retryAfter !== undefined) {
+      json.retryAfter = this.retryAfter;
+    }
+    return json;
   }
 }
 

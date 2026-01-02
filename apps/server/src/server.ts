@@ -11,6 +11,7 @@
  * - Pino for structured logging
  */
 
+import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyJwt from '@fastify/jwt';
@@ -50,6 +51,9 @@ async function buildServer() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  // Cookie support (for OAuth CSRF state)
+  await app.register(fastifyCookie);
 
   // Security headers
   await app.register(fastifyHelmet, {
@@ -97,7 +101,21 @@ async function buildServer() {
   app.decorate('authenticate', async (request: FastifyRequest, _reply: FastifyReply) => {
     try {
       await request.jwtVerify();
-    } catch {
+
+      // Check if token is blacklisted (for logout support)
+      const authHeader = request.headers.authorization;
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        const { isTokenBlacklisted } = await import('@/services/redis');
+        const isBlacklisted = await isTokenBlacklisted(token);
+        if (isBlacklisted) {
+          throw new AuthenticationError('Token has been revoked');
+        }
+      }
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        throw error;
+      }
       throw new AuthenticationError('Invalid or expired token');
     }
   });
@@ -213,7 +231,6 @@ async function buildServer() {
   // Prefix all API routes with /api/v1
   app.register(
     (api, _opts, done) => {
-      api.register(authRoutes, { prefix: '/auth' });
       api.register(userRoutes, { prefix: '/users' });
       api.register(friendRoutes, { prefix: '/friends' });
       done();
@@ -221,7 +238,7 @@ async function buildServer() {
     { prefix: '/api/v1' }
   );
 
-  // Also register auth at root for OAuth redirects
+  // Auth routes at root for OAuth redirects (GITHUB_CALLBACK_URL should use /auth/callback)
   app.register(authRoutes, { prefix: '/auth' });
 
   // ===================
@@ -267,49 +284,55 @@ async function start(): Promise<void> {
     // Graceful Shutdown
     // ===================
 
-    const shutdown = (signal: string): void => {
+    const shutdown = async (signal: string): Promise<void> => {
       logger.info({ signal }, 'Shutdown signal received');
 
       // Set a timeout for graceful shutdown
       const shutdownTimeout = setTimeout(() => {
         logger.error('Graceful shutdown timed out, forcing exit');
-        throw new Error('Shutdown timeout');
+        // eslint-disable-next-line no-process-exit
+        process.exit(1);
       }, 30_000);
 
-      Promise.all([
-        app?.close().then(() => {
-          logger.info('HTTP server closed');
-        }),
-        disconnectDb(),
-        disconnectRedis(),
-      ])
-        .then(() => {
-          clearTimeout(shutdownTimeout);
-          logger.info('Graceful shutdown complete');
-        })
-        .catch((error: unknown) => {
-          logger.error({ error }, 'Error during shutdown');
-          clearTimeout(shutdownTimeout);
-          throw error;
-        });
+      try {
+        await Promise.all([
+          app?.close().then(() => {
+            logger.info('HTTP server closed');
+          }),
+          disconnectDb(),
+          disconnectRedis(),
+        ]);
+
+        clearTimeout(shutdownTimeout);
+        logger.info('Graceful shutdown complete');
+        // eslint-disable-next-line no-process-exit
+        process.exit(0);
+      } catch (error: unknown) {
+        logger.error({ error }, 'Error during shutdown');
+        clearTimeout(shutdownTimeout);
+        // eslint-disable-next-line no-process-exit
+        process.exit(1);
+      }
     };
 
     process.on('SIGTERM', () => {
-      shutdown('SIGTERM');
+      void shutdown('SIGTERM');
     });
     process.on('SIGINT', () => {
-      shutdown('SIGINT');
+      void shutdown('SIGINT');
     });
 
-    // Handle uncaught errors
+    // Handle uncaught errors - exit immediately, don't attempt graceful shutdown
     process.on('uncaughtException', (error) => {
       logger.fatal({ error }, 'Uncaught exception');
-      shutdown('uncaughtException');
+      // eslint-disable-next-line no-process-exit
+      process.exit(1);
     });
 
     process.on('unhandledRejection', (reason) => {
       logger.fatal({ reason }, 'Unhandled rejection');
-      shutdown('unhandledRejection');
+      // eslint-disable-next-line no-process-exit
+      process.exit(1);
     });
   } catch (error) {
     logger.fatal({ error }, 'Failed to start server');

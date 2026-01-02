@@ -25,6 +25,19 @@ const UserIdParamsSchema = z.object({
 });
 
 /**
+ * Search query schema.
+ */
+const SearchQuerySchema = z.object({
+  q: z.string().min(2, 'Search query must be at least 2 characters'),
+});
+
+/**
+ * Valid tier values.
+ */
+const VALID_TIERS = ['FREE', 'PRO', 'TEAM'] as const;
+type ValidTier = (typeof VALID_TIERS)[number];
+
+/**
  * Transform Prisma user to DTO.
  */
 function toUserDTO(user: {
@@ -37,13 +50,18 @@ function toUserDTO(user: {
   privacyMode: boolean;
   createdAt: Date;
 }): UserDTO {
+  // Runtime validation of tier value
+  const tier = VALID_TIERS.includes(user.tier as ValidTier)
+    ? (user.tier as UserDTO['tier'])
+    : 'FREE'; // Safe default for invalid DB values
+
   return {
     id: user.id,
     githubId: user.githubId,
     username: user.username,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
-    tier: user.tier as UserDTO['tier'],
+    tier,
     privacyMode: user.privacyMode,
     createdAt: user.createdAt.toISOString(),
   };
@@ -203,11 +221,13 @@ export function userRoutes(app: FastifyInstance): void {
     '/users/search',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const query = (request.query as Record<string, string>).q;
+      const queryResult = SearchQuerySchema.safeParse(request.query);
 
-      if (!query || query.length < 2) {
+      if (!queryResult.success) {
         throw new ValidationError('Search query must be at least 2 characters');
       }
+
+      const { q: query } = queryResult.data;
 
       const users = await db.user.findMany({
         where: {

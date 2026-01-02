@@ -5,26 +5,12 @@
  * Creates or updates user records on successful authentication.
  */
 
+import type { User } from '@/generated/prisma/client';
+
 import { env } from '@/config';
 import { AuthenticationError, InternalError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
-
-/**
- * User type from database.
- */
-interface User {
-  id: string;
-  githubId: string;
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  email: string | null;
-  tier: string;
-  privacyMode: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 /**
  * GitHub OAuth endpoints.
@@ -56,6 +42,11 @@ interface TokenResponse {
 }
 
 /**
+ * GitHub API request timeout in milliseconds.
+ */
+const GITHUB_API_TIMEOUT_MS = 10000;
+
+/**
  * Generate the GitHub OAuth authorization URL.
  *
  * @param state - Optional state parameter for CSRF protection
@@ -84,33 +75,47 @@ export function getGitHubAuthUrl(state?: string): string {
  * @throws AuthenticationError if exchange fails
  */
 async function exchangeCodeForToken(code: string): Promise<string> {
-  const response = await fetch(GITHUB_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      client_id: env.GITHUB_CLIENT_ID,
-      client_secret: env.GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri: env.GITHUB_CALLBACK_URL,
-    }),
-  });
+  try {
+    const response = await fetch(GITHUB_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: env.GITHUB_CLIENT_ID,
+        client_secret: env.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: env.GITHUB_CALLBACK_URL,
+      }),
+      signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
+    });
 
-  if (!response.ok) {
-    logger.error({ status: response.status }, 'GitHub token exchange failed');
-    throw new AuthenticationError('Failed to authenticate with GitHub');
+    if (!response.ok) {
+      logger.error({ status: response.status }, 'GitHub token exchange failed');
+      throw new AuthenticationError('Failed to authenticate with GitHub');
+    }
+
+    const data = (await response.json()) as TokenResponse;
+
+    if (data.error) {
+      logger.error(
+        { error: data.error, description: data.error_description },
+        'GitHub OAuth error'
+      );
+      throw new AuthenticationError(data.error_description ?? 'GitHub authentication failed');
+    }
+
+    return data.access_token;
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw new AuthenticationError('GitHub authentication timed out');
+    }
+    throw error;
   }
-
-  const data = (await response.json()) as TokenResponse;
-
-  if (data.error) {
-    logger.error({ error: data.error, description: data.error_description }, 'GitHub OAuth error');
-    throw new AuthenticationError(data.error_description ?? 'GitHub authentication failed');
-  }
-
-  return data.access_token;
 }
 
 /**
@@ -121,19 +126,30 @@ async function exchangeCodeForToken(code: string): Promise<string> {
  * @throws AuthenticationError if fetch fails
  */
 async function fetchGitHubUser(accessToken: string): Promise<GitHubUser> {
-  const response = await fetch(GITHUB_USER_URL, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/vnd.github.v3+json',
-    },
-  });
+  try {
+    const response = await fetch(GITHUB_USER_URL, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+      signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS),
+    });
 
-  if (!response.ok) {
-    logger.error({ status: response.status }, 'Failed to fetch GitHub user');
-    throw new AuthenticationError('Failed to fetch GitHub user profile');
+    if (!response.ok) {
+      logger.error({ status: response.status }, 'Failed to fetch GitHub user');
+      throw new AuthenticationError('Failed to fetch GitHub user profile');
+    }
+
+    return (await response.json()) as GitHubUser;
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw new AuthenticationError('GitHub authentication timed out');
+    }
+    throw error;
   }
-
-  return (await response.json()) as GitHubUser;
 }
 
 /**
@@ -173,7 +189,7 @@ export async function authenticateWithGitHub(code: string): Promise<User> {
 
     logger.info({ userId: user.id, username: user.username }, 'User authenticated via GitHub');
 
-    return user as User;
+    return user;
   } catch (error) {
     if (error instanceof AuthenticationError) {
       throw error;

@@ -81,5 +81,5 @@ export async function isDbHealthy(): Promise<boolean> {
   }
 }
 
-// Export db as convenient alias
-export const db = getDb();
+// Note: Use getDb() instead of a direct export to allow test mocking
+// and prevent side effects on import

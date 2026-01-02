@@ -24,9 +24,12 @@ const REDACT_PATHS = [
   'token',
   'secret',
   'apiKey',
+  'email',
   '*.password',
   '*.token',
   '*.secret',
+  '*.email',
+  'user.email',
   'headers.authorization',
   'headers.cookie',
 ];

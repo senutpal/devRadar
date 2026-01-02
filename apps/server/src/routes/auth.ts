@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
+import { isProduction } from '@/config';
 import { ValidationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getGitHubAuthUrl, authenticateWithGitHub } from '@/services/github';
@@ -36,8 +37,13 @@ export function authRoutes(app: FastifyInstance): void {
     // Generate state for CSRF protection
     const state = crypto.randomUUID();
 
-    // Store state in session/cookie for validation (simplified for now)
-    // In production, use secure cookies or session storage
+    // Store state in secure cookie for validation
+    reply.setCookie('oauth_state', state, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 600, // 10 minutes
+    });
 
     const authUrl = getGitHubAuthUrl(state);
 
@@ -51,58 +57,84 @@ export function authRoutes(app: FastifyInstance): void {
    * Handle GitHub OAuth callback.
    * Returns JWT token on success.
    */
-  app.get('/auth/callback', async (request: FastifyRequest, reply: FastifyReply) => {
-    const result = CallbackQuerySchema.safeParse(request.query);
-
-    if (!result.success) {
-      throw new ValidationError('Invalid callback parameters', {
-        details: { errors: result.error.issues },
-      });
-    }
-
-    const { code, error, error_description } = result.data;
-
-    // Handle OAuth errors from GitHub
-    if (error) {
-      logger.warn({ error, error_description }, 'GitHub OAuth error');
-      return reply.status(400).send({
-        error: {
-          code: 'OAUTH_ERROR',
-          message: error_description ?? error,
+  app.get(
+    '/auth/callback',
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 minute',
         },
-      });
-    }
-
-    // Authenticate with GitHub
-    const user = await authenticateWithGitHub(code);
-
-    // Generate JWT
-    const token = app.jwt.sign(
-      {
-        userId: user.id,
-        username: user.username,
-        tier: user.tier,
       },
-      { expiresIn: '7d' }
-    );
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const result = CallbackQuerySchema.safeParse(request.query);
 
-    logger.info({ userId: user.id }, 'User authenticated successfully');
+      if (!result.success) {
+        throw new ValidationError('Invalid callback parameters', {
+          details: { errors: result.error.issues },
+        });
+      }
 
-    // Return token and user info
-    // In production, the extension would intercept this or use a custom URI scheme
-    return reply.send({
-      data: {
-        token,
-        user: {
-          id: user.id,
+      const { code, state, error, error_description } = result.data;
+
+      // Validate CSRF state
+      const storedState = request.cookies.oauth_state;
+      if (!state || !storedState || state !== storedState) {
+        logger.warn({ providedState: state }, 'OAuth state mismatch');
+        return reply.status(400).send({
+          error: {
+            code: 'INVALID_STATE',
+            message: 'Invalid OAuth state parameter',
+          },
+        });
+      }
+
+      // Clear the state cookie
+      reply.clearCookie('oauth_state');
+
+      // Handle OAuth errors from GitHub
+      if (error) {
+        logger.warn({ error, error_description }, 'GitHub OAuth error');
+        return reply.status(400).send({
+          error: {
+            code: 'OAUTH_ERROR',
+            message: error_description ?? error,
+          },
+        });
+      }
+
+      // Authenticate with GitHub
+      const user = await authenticateWithGitHub(code);
+
+      // Generate JWT
+      const token = app.jwt.sign(
+        {
+          userId: user.id,
           username: user.username,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl,
           tier: user.tier,
         },
-      },
-    });
-  });
+        { expiresIn: '7d' }
+      );
+
+      logger.info({ userId: user.id }, 'User authenticated successfully');
+
+      // Return token and user info
+      // In production, the extension would intercept this or use a custom URI scheme
+      return reply.send({
+        data: {
+          token,
+          user: {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl,
+            tier: user.tier,
+          },
+        },
+      });
+    }
+  );
 
   /**
    * POST /auth/refresh
@@ -131,14 +163,38 @@ export function authRoutes(app: FastifyInstance): void {
 
   /**
    * POST /auth/logout
-   * Logout (client-side token removal).
-   * Server-side we could invalidate refresh tokens if we had them.
+   * Logout and blacklist the current token.
    */
-  app.post('/auth/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // With JWT, logout is primarily client-side
-    // We could add token blacklisting for enhanced security
-    return reply.send({
-      data: { message: 'Logged out successfully' },
-    });
-  });
+  app.post(
+    '/auth/logout',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        // Extract token from Authorization header
+        const authHeader = request.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+          const token = authHeader.slice(7);
+
+          // Decode token to get expiry (without verification since we already verified)
+          const decoded = app.jwt.decode(token) as { exp?: number } | null;
+          if (decoded?.exp) {
+            const ttlSeconds = decoded.exp - Math.floor(Date.now() / 1000);
+
+            // Import dynamically to avoid circular dependency
+            const { blacklistToken } = await import('@/services/redis');
+            await blacklistToken(token, ttlSeconds);
+
+            logger.info('Token blacklisted on logout');
+          }
+        }
+      } catch (error) {
+        // Log but don't fail the logout
+        logger.warn({ error }, 'Failed to blacklist token during logout');
+      }
+
+      return reply.send({
+        data: { message: 'Logged out successfully' },
+      });
+    }
+  );
 }

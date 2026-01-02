@@ -9,6 +9,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Note: URL configured in prisma.config.ts for Prisma 7
 }
 
 // ===================
@@ -28,9 +29,10 @@ model User {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  following Follow[] @relation("Following")
-  followers Follow[] @relation("Followers")
-  teams     TeamMember[]
+  following  Follow[]     @relation("Following")
+  followers  Follow[]     @relation("Followers")
+  teams      TeamMember[]
+  ownedTeams Team[]       @relation("TeamOwner")
 
   @@index([username])
   @@index([githubId])
@@ -41,7 +43,6 @@ model User {
 // ===================
 
 model Follow {
-  id          String   @id @default(cuid())
   followerId  String
   followingId String
   createdAt   DateTime @default(now())
@@ -50,7 +51,7 @@ model Follow {
   follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
   following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
 
-  @@unique([followerId, followingId])
+  @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
 }
@@ -69,6 +70,7 @@ model Team {
   updatedAt DateTime @updatedAt
 
   // Relations
+  owner   User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members TeamMember[]
 
   @@index([slug])

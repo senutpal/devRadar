@@ -25,6 +25,9 @@ export interface AuthenticatedWebSocket extends WebSocket {
 
   /** Connection established timestamp */
   connectedAt: number;
+
+  /** Redis presence message handler for cleanup */
+  presenceMessageHandler?: (channel: string, message: string) => void;
 }
 
 /**

@@ -13,13 +13,13 @@
       "env": ["NODE_ENV"]
     },
     "check-types": {
-      "dependsOn": ["topo"]
+      "dependsOn": ["^build"]
     },
     "lint": {
-      "dependsOn": ["topo"]
+      "dependsOn": ["^build"]
     },
     "lint:fix": {
-      "dependsOn": ["topo"]
+      "dependsOn": ["^build"]
     },
     "test": {
       "dependsOn": ["build"],

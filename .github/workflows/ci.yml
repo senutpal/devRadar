@@ -45,6 +45,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm --filter @devradar/server db:generate
+        env:
+          DATABASE_URL: 'postgresql://user:pass@localhost:5432/db'
+          SHADOW_DATABASE_URL: 'postgresql://user:pass@localhost:5432/shadow'
 
       - name: Lint
         run: pnpm lint

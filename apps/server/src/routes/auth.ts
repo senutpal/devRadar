@@ -61,6 +61,7 @@ export function authRoutes(app: FastifyInstance): void {
     '/auth/callback',
     {
       config: {
+        // Rate limiting: 10 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit)
         rateLimit: {
           max: 10,
           timeWindow: '1 minute',
@@ -176,9 +177,9 @@ export function authRoutes(app: FastifyInstance): void {
           const token = authHeader.slice(7);
 
           // Decode token to get expiry (without verification since we already verified)
-          const decoded = app.jwt.decode(token) as { exp?: number } | null;
-          if (decoded?.exp) {
-            const ttlSeconds = decoded.exp - Math.floor(Date.now() / 1000);
+          const decoded = app.jwt.decode(token);
+          if (decoded && typeof decoded === 'object' && 'exp' in decoded) {
+            const ttlSeconds = (decoded.exp as number) - Math.floor(Date.now() / 1000);
 
             // Import dynamically to avoid circular dependency
             const { blacklistToken } = await import('@/services/redis');

@@ -70,7 +70,7 @@ function toUserDTO(user: {
 /**
  * Register user routes.
  */
-export function userRoutes(app: FastifyInstance): void {
+export async function userRoutes(app: FastifyInstance): Promise<void> {
   const db = getDb();
 
   /**
@@ -78,7 +78,7 @@ export function userRoutes(app: FastifyInstance): void {
    * Get current authenticated user's profile.
    */
   app.get(
-    '/users/me',
+    '/me',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -109,7 +109,7 @@ export function userRoutes(app: FastifyInstance): void {
    * Get user by ID (public profile).
    */
   app.get(
-    '/users/:id',
+    '/:id',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const result = UserIdParamsSchema.safeParse(request.params);
@@ -178,7 +178,7 @@ export function userRoutes(app: FastifyInstance): void {
    * Update current user's profile.
    */
   app.patch(
-    '/users/me',
+    '/me',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -218,7 +218,7 @@ export function userRoutes(app: FastifyInstance): void {
    * Search users by username.
    */
   app.get(
-    '/users/search',
+    '/search',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const queryResult = SearchQuerySchema.safeParse(request.query);

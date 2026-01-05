@@ -1,0 +1,15 @@
+# Build outputs
+dist/
+out/
+
+# VS Code test
+.vscode-test/
+
+# Package
+*.vsix
+
+# Node
+node_modules/
+
+# Logs
+*.log

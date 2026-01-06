@@ -65,7 +65,7 @@ export function friendRoutes(app: FastifyInstance): void {
    * List users the current user is following (friends).
    */
   app.get(
-    '/friends',
+    '/',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -139,7 +139,7 @@ export function friendRoutes(app: FastifyInstance): void {
    * List users following the current user.
    */
   app.get(
-    '/friends/followers',
+    '/followers',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -194,7 +194,7 @@ export function friendRoutes(app: FastifyInstance): void {
    * Follow a user.
    */
   app.post(
-    '/friends/:id',
+    '/:id',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -261,7 +261,7 @@ export function friendRoutes(app: FastifyInstance): void {
    * Unfollow a user.
    */
   app.delete(
-    '/friends/:id',
+    '/:id',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -307,7 +307,7 @@ export function friendRoutes(app: FastifyInstance): void {
    * Get mutual friends with a user.
    */
   app.get(
-    '/friends/:id/mutual',
+    '/:id/mutual',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };

@@ -36,7 +36,7 @@ import { WsCloseCodes } from '@/ws/types';
  * Inbound message schema.
  */
 const InboundMessageSchema = z.object({
-  type: z.enum(['HEARTBEAT', 'POKE', 'SUBSCRIBE', 'UNSUBSCRIBE']),
+  type: z.enum(['HEARTBEAT', 'POKE', 'SUBSCRIBE', 'UNSUBSCRIBE', 'STATUS_UPDATE']),
   payload: z.unknown(),
   timestamp: z.number().int().positive(),
   correlationId: z.string().uuid().optional(),
@@ -46,6 +46,13 @@ const InboundMessageSchema = z.object({
  * Heartbeat message schema.
  */
 const HeartbeatMessageSchema = z.object({
+  ping: z.boolean().optional(),
+});
+
+/**
+ * Status update message schema.
+ */
+const StatusUpdateMessageSchema = z.object({
   status: UserStatusTypeSchema,
   activity: ActivityPayloadSchema.optional(),
 });
@@ -211,6 +218,27 @@ async function handleHeartbeat(
     return;
   }
 
+  ws.lastHeartbeat = Date.now();
+
+  // Send pong
+  send(ws, 'PONG', { timestamp: Date.now() }, correlationId);
+}
+
+/**
+ * Handle status update message.
+ */
+async function handleStatusUpdate(
+  ws: AuthenticatedWebSocket,
+  payload: unknown,
+  correlationId?: string
+): Promise<void> {
+  const result = StatusUpdateMessageSchema.safeParse(payload);
+
+  if (!result.success) {
+    sendError(ws, 'INVALID_PAYLOAD', 'Invalid status update payload', correlationId);
+    return;
+  }
+
   const { status, activity } = result.data;
 
   // Update presence in Redis
@@ -220,11 +248,6 @@ async function handleHeartbeat(
     activity: activity as Record<string, unknown> | undefined,
     updatedAt: Date.now(),
   });
-
-  ws.lastHeartbeat = Date.now();
-
-  // Send pong
-  send(ws, 'PONG', { timestamp: Date.now() }, correlationId);
 }
 
 /**
@@ -289,6 +312,10 @@ async function handleMessage(ws: AuthenticatedWebSocket, data: string): Promise<
     switch (type) {
       case 'HEARTBEAT':
         await handleHeartbeat(ws, payload, correlationId);
+        break;
+
+      case 'STATUS_UPDATE':
+        await handleStatusUpdate(ws, payload, correlationId);
         break;
 
       case 'POKE':

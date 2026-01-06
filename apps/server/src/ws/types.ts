@@ -33,7 +33,13 @@ export interface AuthenticatedWebSocket extends WebSocket {
 /**
  * Inbound WebSocket message types.
  */
-export type InboundMessageType = 'HEARTBEAT' | 'POKE' | 'SUBSCRIBE' | 'UNSUBSCRIBE';
+export type InboundMessageType =
+  | 'HEARTBEAT'
+  | 'POKE'
+  | 'SUBSCRIBE'
+  | 'UNSUBSCRIBE'
+  | 'STATUS_UPDATE'
+  | 'PING';
 
 /**
  * Outbound WebSocket message types.

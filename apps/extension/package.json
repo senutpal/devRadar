@@ -8,7 +8,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/devradar/devradar"
+    "url": "https://github.com/senutpal/devRadar"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -132,12 +132,12 @@
         "devradar.serverUrl": {
           "type": "string",
           "default": "http://localhost:3000",
-          "description": "DevRadar server URL"
+          "description": "DevRadar server URL (override with DEVRADAR_SERVER_URL env var in production)"
         },
         "devradar.wsUrl": {
           "type": "string",
           "default": "ws://localhost:3000/ws",
-          "description": "DevRadar WebSocket URL"
+          "description": "DevRadar WebSocket URL (override with DEVRADAR_WS_URL env var in production)"
         },
         "devradar.privacyMode": {
           "type": "boolean",
@@ -192,10 +192,10 @@
         },
         "devradar.heartbeatInterval": {
           "type": "number",
-          "default": 30000,
+          "default": 60000,
           "minimum": 10000,
           "maximum": 60000,
-          "description": "Heartbeat interval in milliseconds (default: 30 seconds)"
+          "description": "Heartbeat interval in milliseconds (default: 60 seconds; lower values increase server load)"
         },
         "devradar.enableNotifications": {
           "type": "boolean",

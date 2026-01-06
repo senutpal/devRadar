@@ -23,7 +23,8 @@ export type MessageType =
   | 'CONFLICT_ALERT'
   | 'ACHIEVEMENT'
   | 'ERROR'
-  | 'HEARTBEAT';
+  | 'HEARTBEAT'
+  | 'PONG';
 
 /**
  * Unix timestamp in milliseconds (value returned by Date.now()).

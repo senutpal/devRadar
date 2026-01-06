@@ -12,7 +12,14 @@
 
 ## Installation
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=devradar.devradar) or search for "DevRadar" in the Extensions panel.
+Since this extension is currently in private development (`private: true`), you can install it locally:
+
+1. Clone the repository
+2. Run `pnpm install`
+3. Run `pnpm build`
+4. Open the `apps/extension` folder in VS Code and press F5 to launch the Extension Development Host.
+
+_Note: Once published, you will be able to install it from the VS Code Marketplace._
 
 ## Getting Started
 
@@ -25,15 +32,22 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 Access settings via `File > Preferences > Settings` and search for "DevRadar".
 
-| Setting                        | Default                  | Description                     |
-| ------------------------------ | ------------------------ | ------------------------------- |
-| `devradar.privacyMode`         | `false`                  | Hide your activity from friends |
-| `devradar.showFileName`        | `true`                   | Show current file name          |
-| `devradar.showProject`         | `true`                   | Show project name               |
-| `devradar.showLanguage`        | `true`                   | Show programming language       |
-| `devradar.blacklistedFiles`    | `[".env", "*.pem", ...]` | Files to never broadcast        |
-| `devradar.idleTimeout`         | `300000`                 | Time (ms) before going idle     |
-| `devradar.enableNotifications` | `true`                   | Show poke notifications         |
+| Setting                          | Default                                      | Description                                                 |
+| -------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| Setting                          | Default                                      | Description                                                 |
+| -------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| `devradar.privacyMode`           | `false`                                      | Hide your activity from friends                             |
+| `devradar.showFileName`          | `true`                                       | Show current file name                                      |
+| `devradar.showProject`           | `true`                                       | Show project name                                           |
+| `devradar.showLanguage`          | `true`                                       | Show programming language                                   |
+| `devradar.showStatusBarItem`     | `true`                                       | Show DevRadar status in the status bar                      |
+| `devradar.enableNotifications`   | `true`                                       | Show notifications when friends come online or poke you     |
+| `devradar.serverUrl`             | `"http://localhost:3000"`                    | DevRadar server URL (overridable)                           |
+| `devradar.wsUrl`                 | `"ws://localhost:3000/ws"`                   | DevRadar WebSocket URL (overridable)                        |
+| `devradar.blacklistedFiles`      | `[".env", ".env.*", "*.pem", "*.key", ...]`  | File patterns to never broadcast                            |
+| `devradar.blacklistedWorkspaces` | `[]`                                         | Workspace folders to never broadcast                        |
+| `devradar.idleTimeout`           | `300000`                                     | Time (ms) before going idle (5 mins)                        |
+| `devradar.heartbeatInterval`     | `60000`                                      | Heartbeat interval in milliseconds (60s)                    |
 
 ## Commands
 

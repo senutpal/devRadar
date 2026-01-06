@@ -108,6 +108,44 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    * GET /users/:id
    * Get user by ID (public profile).
    */
+  /**
+   * GET /users/search
+   * Search users by username.
+   */
+  app.get(
+    '/search',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const queryResult = SearchQuerySchema.safeParse(request.query);
+
+      if (!queryResult.success) {
+        throw new ValidationError('Search query must be at least 2 characters');
+      }
+
+      const { q: query } = queryResult.data;
+
+      const users = await db.user.findMany({
+        where: {
+          OR: [
+            { username: { contains: query, mode: 'insensitive' } },
+            { displayName: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+        take: 20,
+      });
+
+      return reply.send({
+        data: users,
+      });
+    }
+  );
+
   app.get(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -217,37 +255,4 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    * GET /users/search
    * Search users by username.
    */
-  app.get(
-    '/search',
-    { onRequest: [app.authenticate] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const queryResult = SearchQuerySchema.safeParse(request.query);
-
-      if (!queryResult.success) {
-        throw new ValidationError('Search query must be at least 2 characters');
-      }
-
-      const { q: query } = queryResult.data;
-
-      const users = await db.user.findMany({
-        where: {
-          OR: [
-            { username: { contains: query, mode: 'insensitive' } },
-            { displayName: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        select: {
-          id: true,
-          username: true,
-          displayName: true,
-          avatarUrl: true,
-        },
-        take: 20,
-      });
-
-      return reply.send({
-        data: users,
-      });
-    }
-  );
 }

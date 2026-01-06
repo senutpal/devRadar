@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 
 import type { AuthService } from '../services/authService';
+import type { ConfigManager } from '../utils/configManager';
 import type { WebSocketClient } from '../services/wsClient';
 import type { Logger } from '../utils/logger';
 import type { UserDTO, UserStatus, UserStatusType } from '@devradar/shared';
@@ -227,6 +228,7 @@ export class FriendsProvider
   constructor(
     _wsClient: WebSocketClient,
     private readonly authService: AuthService,
+    private readonly configManager: ConfigManager,
     private readonly logger: Logger
   ) {
     // _wsClient is received for future use in API calls
@@ -384,18 +386,49 @@ export class FriendsProvider
   /**
    * Fetches friends list from server.
    */
-  private fetchFriends(): void {
+  private async fetchFriends(): Promise<void> {
     try {
       const token = this.authService.getToken();
       if (!token) {
         return;
       }
 
-      // This would be implemented with actual API call
-      // For now, we rely on WebSocket updates
-      this.logger.debug('Friends list would be fetched from server');
+      this.logger.debug('Fetching friends list from server...');
+      const serverUrl = this.configManager.get('serverUrl');
+
+      const response = await fetch(`${serverUrl}/api/v1/friends?limit=100`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch friends: ${String(response.status)}`);
+      }
+
+      const json = (await response.json()) as { data: any[] };
+      const friendsList = json.data;
+
+      this.friends.clear();
+
+      for (const friendData of friendsList) {
+        const friend: FriendInfo = {
+          id: friendData.id,
+          username: friendData.username,
+          displayName: friendData.displayName,
+          avatarUrl: friendData.avatarUrl,
+          status: friendData.status,
+          activity: friendData.activity,
+          lastUpdated: Date.now(),
+        };
+        this.friends.set(friend.id, friend);
+      }
+
+      this.onDidChangeTreeDataEmitter.fire(undefined);
+      this.logger.info(`Fetched ${String(this.friends.size)} friends`);
     } catch (error) {
       this.logger.error('Failed to fetch friends', error);
+      void vscode.window.showErrorMessage('DevRadar: Failed to load friends list');
     }
   }
 

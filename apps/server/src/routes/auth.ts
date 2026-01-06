@@ -188,7 +188,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    * Refresh JWT token (requires valid token).
    */
   app.post(
-    '/auth/refresh',
+    '/refresh',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = request.user as { userId: string; username: string; tier: string };
@@ -213,7 +213,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    * Logout and blacklist the current token.
    */
   app.post(
-    '/auth/logout',
+    '/logout',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {

@@ -219,8 +219,8 @@ export class WebSocketClient implements vscode.Disposable {
         const data = typeof event.data === 'string' ? event.data : '';
         const message = JSON.parse(data) as WebSocketMessage;
 
-        // Handle heartbeat response
-        if (message.type === 'HEARTBEAT') {
+        // Handle heartbeat and pong response
+        if (message.type === 'HEARTBEAT' || message.type === 'PONG') {
           this.lastPongTime = Date.now();
           return;
         }

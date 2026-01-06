@@ -42,7 +42,12 @@ class DevRadarExtension implements vscode.Disposable {
     this.activityTracker = new ActivityTracker(this.wsClient, this.configManager, this.logger);
 
     // Initialize views
-    this.friendsProvider = new FriendsProvider(this.wsClient, this.authService, this.logger);
+    this.friendsProvider = new FriendsProvider(
+      this.wsClient,
+      this.authService,
+      this.configManager,
+      this.logger
+    );
     this.activityProvider = new ActivityProvider(this.wsClient, this.logger);
     this.statusBar = new StatusBarManager(this.wsClient, this.authService, this.logger);
 

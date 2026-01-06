@@ -329,11 +329,11 @@ class DevRadarExtension implements vscode.Disposable {
     }
 
     const trimmedMessage = message.trim();
-    // Sanitize: strip control characters (except simple whitespace) and HTML-like tags
+    // Sanitize: strip control characters and angle brackets (poke messages are plain text)
     /* eslint-disable no-control-regex */
     const sanitizedMessage = trimmedMessage
       .replace(/[\u0000-\u001f\u007f-\u009f]/g, '') // Remove control chars
-      .replace(/<[^>]*>/g, ''); // Remove HTML tags
+      .replace(/[<>]/g, ''); // Remove angle brackets to prevent HTML injection
     /* eslint-enable no-control-regex */
 
     this.wsClient.sendPoke(userId, sanitizedMessage);

@@ -226,132 +226,31 @@ export class FriendsProvider
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
   constructor(
-    _wsClient: WebSocketClient,
     private readonly authService: AuthService,
     private readonly configManager: ConfigManager,
     private readonly logger: Logger
   ) {
-    // _wsClient is received for future use in API calls
-    void _wsClient;
     this.disposables.push(this.onDidChangeTreeDataEmitter);
   }
 
-  /**
-   * Gets tree item for element.
-   */
-  getTreeItem(element: FriendTreeItem | GroupTreeItem): vscode.TreeItem {
-    return element;
-  }
-
-  /**
-   * Gets children for element.
-   */
-  async getChildren(
-    element?: FriendTreeItem | GroupTreeItem
-  ): Promise<(FriendTreeItem | GroupTreeItem)[]> {
-    // Check authentication
-    this.isAuthenticated = await this.authService.isAuthenticated();
-    if (!this.isAuthenticated) {
-      return [];
-    }
-
-    // Root level - return groups
-    if (!element) {
-      return this.getGroups();
-    }
-
-    // Group level - return friends in that group
-    if (element instanceof GroupTreeItem) {
-      return this.getFriendsInGroup(element.statusGroup);
-    }
-
-    // Friend level - no children
-    return [];
-  }
-
-  /**
-   * Gets the status groups.
-   */
-  private getGroups(): GroupTreeItem[] {
-    const groups: GroupTreeItem[] = [];
-
-    const onlineCount = this.getCountByStatus('online');
-    const idleCount = this.getCountByStatus('idle');
-    const dndCount = this.getCountByStatus('dnd');
-    const offlineCount = this.getCountByStatus('offline');
-
-    if (onlineCount > 0) {
-      groups.push(new GroupTreeItem('online', onlineCount));
-    }
-    if (idleCount > 0) {
-      groups.push(new GroupTreeItem('idle', idleCount));
-    }
-    if (dndCount > 0) {
-      groups.push(new GroupTreeItem('dnd', dndCount));
-    }
-    if (offlineCount > 0) {
-      groups.push(new GroupTreeItem('offline', offlineCount));
-    }
-
-    return groups;
-  }
-
-  /**
-   * Gets friends in a specific status group.
-   */
-  private getFriendsInGroup(status: UserStatusType | 'all'): FriendTreeItem[] {
-    const friends = Array.from(this.friends.values())
-      .filter((f) => status === 'all' || f.status === status)
-      .sort((a, b) => {
-        // Sort by last updated (most recent first)
-        return b.lastUpdated - a.lastUpdated;
-      });
-
-    return friends.map((f) => new FriendTreeItem(f));
-  }
-
-  /**
-   * Gets count of friends with specific status.
-   */
-  private getCountByStatus(status: UserStatusType): number {
-    return Array.from(this.friends.values()).filter((f) => f.status === status).length;
-  }
-
-  /**
-   * Refreshes the tree view.
-   */
-  refresh(): void {
-    this.logger.debug('Refreshing friends tree view');
-    this.fetchFriends();
-    this.onDidChangeTreeDataEmitter.fire(undefined);
-  }
-
-  /**
-   * Builds activity info from status, handling optional properties correctly.
-   */
-  private buildActivityInfo(
-    activity: NonNullable<UserStatus['activity']>
-  ): NonNullable<FriendInfo['activity']> {
-    const result: NonNullable<FriendInfo['activity']> = {
-      sessionDuration: activity.sessionDuration,
-    };
-    if (activity.fileName !== undefined) {
-      result.fileName = activity.fileName;
-    }
-    if (activity.language !== undefined) {
-      result.language = activity.language;
-    }
-    if (activity.project !== undefined) {
-      result.project = activity.project;
-    }
-    return result;
-  }
+  // ... (keeping method order)
 
   /**
    * Handles friend status update from WebSocket.
    */
   handleFriendStatus(payload: unknown): void {
     if (typeof payload !== 'object' || payload === null) {
+      return;
+    }
+
+    // Validate payload shape
+    const p = payload as Record<string, unknown>;
+    if (
+      typeof p.userId !== 'string' ||
+      typeof p.status !== 'string' ||
+      typeof p.updatedAt !== 'number'
+    ) {
+      this.logger.warn('Invalid friend status payload', payload);
       return;
     }
 
@@ -371,6 +270,8 @@ export class FriendsProvider
       this.friends.set(status.userId, updated);
       this.onDidChangeTreeDataEmitter.fire(undefined);
       this.logger.debug('Updated friend status', { userId: status.userId, status: status.status });
+    } else {
+      this.logger.debug('Received status for unknown friend, ignoring', { userId: status.userId });
     }
   }
 

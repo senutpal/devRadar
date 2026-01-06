@@ -42,12 +42,7 @@ class DevRadarExtension implements vscode.Disposable {
     this.activityTracker = new ActivityTracker(this.wsClient, this.configManager, this.logger);
 
     // Initialize views
-    this.friendsProvider = new FriendsProvider(
-      this.wsClient,
-      this.authService,
-      this.configManager,
-      this.logger
-    );
+    this.friendsProvider = new FriendsProvider(this.authService, this.configManager, this.logger);
     this.activityProvider = new ActivityProvider(this.wsClient, this.logger);
     this.statusBar = new StatusBarManager(this.wsClient, this.authService, this.logger);
 
@@ -274,10 +269,24 @@ class DevRadarExtension implements vscode.Disposable {
   }
 
   /**
+   * Type guard for friend item.
+   */
+  private isFriendItem(item: unknown): item is { userId: string; username?: string } {
+    return (
+      typeof item === 'object' &&
+      item !== null &&
+      'userId' in item &&
+      typeof (item as { userId: unknown }).userId === 'string'
+    );
+  }
+
+  /**
    * Handles the poke command for a friend.
    */
   private async handlePoke(item: unknown): Promise<void> {
-    if (!item || typeof item !== 'object' || !('userId' in item)) {
+    if (this.isFriendItem(item)) {
+      await this.sendPoke(item.userId);
+    } else {
       // Show quick pick to select friend
       const friends = this.friendsProvider.getOnlineFriends();
       if (friends.length === 0) {
@@ -297,9 +306,6 @@ class DevRadarExtension implements vscode.Disposable {
       if (selected) {
         await this.sendPoke(selected.userId);
       }
-    } else {
-      const friendItem = item as { userId: string };
-      await this.sendPoke(friendItem.userId);
     }
   }
 
@@ -308,11 +314,27 @@ class DevRadarExtension implements vscode.Disposable {
    */
   private async sendPoke(userId: string): Promise<void> {
     const message = await vscode.window.showInputBox({
-      prompt: 'Optional message with your poke',
+      prompt: 'Optional message with your poke (max 500 chars)',
       placeHolder: 'Hey! 👋',
+      validateInput: (value) => {
+        if (value.length > 500) {
+          return 'Message too long (max 500 characters)';
+        }
+        return null;
+      },
     });
 
-    this.wsClient.sendPoke(userId, message);
+    if (message === undefined) {
+      return; // User cancelled
+    }
+
+    const trimmedMessage = message.trim();
+    // Sanitize: strip control characters (except simple whitespace) and HTML-like tags
+    const sanitizedMessage = trimmedMessage
+      .replace(/[\u0000-\u001f\u007f-\u009f]/g, '') // Remove control chars
+      .replace(/<[^>]*>/g, ''); // Remove HTML tags
+
+    this.wsClient.sendPoke(userId, sanitizedMessage);
     void vscode.window.showInformationMessage('DevRadar: Poke sent! 👋');
   }
 
@@ -470,4 +492,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 export function deactivate(): void {
   extension?.dispose();
   extension = undefined;
+  Logger.disposeShared();
 }

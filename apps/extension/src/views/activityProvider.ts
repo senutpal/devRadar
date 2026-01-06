@@ -165,26 +165,34 @@ export class ActivityProvider
       return null;
     }
 
-    const status = payload as { userId: string; status: string; username?: string };
-
-    // Only show online/offline transitions
-    if (status.status !== 'online' && status.status !== 'offline') {
+    // Safer casing and checking
+    const p = payload as Record<string, unknown>;
+    if (typeof p.userId !== 'string' || typeof p.status !== 'string') {
       return null;
     }
 
-    const isOnline = status.status === 'online';
-    const username = status.username ?? status.userId;
+    const userId = p.userId;
+    const status = p.status;
+    const username = typeof p.username === 'string' ? p.username : userId;
+
+    // Only show online/offline transitions
+    if (status !== 'online' && status !== 'offline') {
+      return null;
+    }
+
+    const isOnline = status === 'online';
 
     const event: ActivityEvent = {
-      id: `status-${status.userId}-${String(Date.now())}`,
+      id: `status-${userId}-${String(Date.now())}`,
       type: isOnline ? 'friend_online' : 'friend_offline',
       title: `${username} is now ${isOnline ? 'online' : 'offline'}`,
       description: isOnline ? 'Started coding' : 'Went offline',
       timestamp: Date.now(),
-      userId: status.userId,
+      userId: userId,
     };
-    if (status.username !== undefined) {
-      event.username = status.username;
+
+    if (typeof p.username === 'string') {
+      event.username = p.username;
     }
     return event;
   }
@@ -197,19 +205,29 @@ export class ActivityProvider
       return null;
     }
 
-    const poke = payload as { fromUserId: string; fromUsername?: string; message?: string };
-    const from = poke.fromUsername ?? poke.fromUserId;
+    const p = payload as Record<string, unknown>;
+
+    if (typeof p.fromUserId !== 'string') {
+      return null;
+    }
+
+    const fromUserId = p.fromUserId;
+    const fromUsername = typeof p.fromUsername === 'string' ? p.fromUsername : undefined;
+    const message = typeof p.message === 'string' ? p.message : undefined;
+
+    const from = fromUsername ?? fromUserId;
 
     const event: ActivityEvent = {
-      id: `poke-${poke.fromUserId}-${String(Date.now())}`,
+      id: `poke-${fromUserId}-${String(Date.now())}`,
       type: 'poke',
       title: `${from} poked you! 👋`,
-      description: poke.message ?? 'No message',
+      description: message ?? 'No message',
       timestamp: Date.now(),
-      userId: poke.fromUserId,
+      userId: fromUserId,
     };
-    if (poke.fromUsername !== undefined) {
-      event.username = poke.fromUsername;
+
+    if (fromUsername) {
+      event.username = fromUsername;
     }
     return event;
   }

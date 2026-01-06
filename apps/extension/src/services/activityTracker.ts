@@ -461,6 +461,7 @@ export class ActivityTracker implements vscode.Disposable {
 
   /**
    * Checks if the activity is a duplicate of the last sent.
+   * Returns false if session duration or intensity has changed significantly.
    */
   private isDuplicateActivity(
     activity: ActivityPayload | undefined,
@@ -471,6 +472,13 @@ export class ActivityTracker implements vscode.Disposable {
     }
 
     if (this.currentStatus !== status) {
+      return false;
+    }
+
+    if (
+      this.lastSentActivity.sessionDuration !== activity.sessionDuration ||
+      this.lastSentActivity.intensity !== activity.intensity
+    ) {
       return false;
     }
 

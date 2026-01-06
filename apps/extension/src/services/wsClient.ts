@@ -106,9 +106,8 @@ export class WebSocketClient implements vscode.Disposable {
 
     try {
       const wsUrl = this.configManager.get('wsUrl');
-      const url = `${wsUrl}?token=${encodeURIComponent(token)}`;
-
-      this.ws = new WebSocket(url);
+      // Connect without token in URL
+      this.ws = new WebSocket(wsUrl);
       this.setupWebSocketHandlers();
     } catch (error) {
       this.logger.error('Failed to create WebSocket', error);
@@ -189,7 +188,18 @@ export class WebSocketClient implements vscode.Disposable {
     if (!this.ws) return;
 
     this.ws.onopen = () => {
-      this.logger.info('WebSocket connected');
+      this.logger.info('WebSocket connected, authenticating...');
+
+      // Perform authentication immediately after connection
+      const token = this.authService.getToken();
+      if (token) {
+        this.send('AUTH', { token });
+      } else {
+        this.logger.warn('No token available for WebSocket auth');
+        this.disconnect();
+        return;
+      }
+
       this.setConnectionState('connected');
       this.reconnectAttempts = 0;
       this.lastPongTime = Date.now();
@@ -201,6 +211,15 @@ export class WebSocketClient implements vscode.Disposable {
       this.logger.info('WebSocket closed', { code: event.code, reason: event.reason });
       this.stopHeartbeat();
       this.ws = null;
+
+      // Check for auth failure code (4001)
+      if (event.code === 4001) {
+        this.logger.error('Authentication failed (4001), clearing auth session');
+        this.setConnectionState('disconnected');
+        // Trigger logout/clear auth
+        void this.authService.logout();
+        return;
+      }
 
       if (event.code !== 1000) {
         // Abnormal closure, try to reconnect
@@ -222,6 +241,12 @@ export class WebSocketClient implements vscode.Disposable {
         // Handle heartbeat and pong response
         if (message.type === 'HEARTBEAT' || message.type === 'PONG') {
           this.lastPongTime = Date.now();
+          return;
+        }
+
+        // Handle auth success response if server sends one (optional but good practice)
+        if (message.type === 'AUTH_SUCCESS') {
+          this.logger.info('WebSocket authentication successful');
           return;
         }
 

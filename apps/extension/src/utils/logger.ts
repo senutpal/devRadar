@@ -24,16 +24,18 @@ export class Logger implements vscode.Disposable {
   private readonly prefix: string;
   private static minLevel: LogLevel = LogLevel.INFO;
 
+  // Static initialization block
+  static {
+    if (process.env.NODE_ENV === 'development' || process.env.DEVRADAR_DEBUG) {
+      Logger.minLevel = LogLevel.DEBUG;
+    }
+  }
+
   constructor(prefix: string) {
     this.prefix = prefix;
 
     // Create shared output channel
     Logger.outputChannel ??= vscode.window.createOutputChannel('DevRadar', { log: true });
-
-    // Set log level based on environment
-    if (process.env.NODE_ENV === 'development' || process.env.DEVRADAR_DEBUG) {
-      Logger.minLevel = LogLevel.DEBUG;
-    }
   }
 
   /**
@@ -61,7 +63,8 @@ export class Logger implements vscode.Disposable {
    * Logs an error message.
    */
   error(message: string, error?: unknown): void {
-    this.log(LogLevel.ERROR, message, error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    this.log(LogLevel.ERROR, message, errorStack ? `${String(error)}\n${errorStack}` : error);
 
     // Also log to console for debugging
     if (error instanceof Error) {
@@ -117,6 +120,16 @@ export class Logger implements vscode.Disposable {
    */
   static setLevel(level: LogLevel): void {
     Logger.minLevel = level;
+  }
+
+  /**
+   * Disposes the shared output channel.
+   */
+  static disposeShared(): void {
+    if (Logger.outputChannel) {
+      Logger.outputChannel.dispose();
+      Logger.outputChannel = undefined;
+    }
   }
 
   dispose(): void {

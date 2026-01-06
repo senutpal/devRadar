@@ -5,6 +5,7 @@
  */
 
 import * as vscode from 'vscode';
+import { minimatch } from 'minimatch';
 
 /**
  * Extension configuration schema.
@@ -147,18 +148,10 @@ export class ConfigManager implements vscode.Disposable {
   }
 
   /**
-   * Simple glob pattern matching.
-   * Supports * and ** wildcards.
+   * Simple glob pattern matching using minimatch.
    */
   private matchGlob(text: string, pattern: string): boolean {
-    // Convert glob to regex
-    const regexPattern = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special chars
-      .replace(/\*\*/g, '.*') // ** matches anything
-      .replace(/\*/g, '[^/\\\\]*'); // * matches anything except path separators
-
-    const regex = new RegExp(`^${regexPattern}$`, 'i');
-    return regex.test(text);
+    return minimatch(text, pattern, { dot: true });
   }
 
   dispose(): void {

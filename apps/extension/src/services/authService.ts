@@ -51,6 +51,28 @@ export class AuthService implements vscode.Disposable {
     // Register URI handler once for OAuth callbacks
     this.uriHandler = new DevRadarUriHandler(this.logger);
     this.disposables.push(vscode.window.registerUriHandler(this.uriHandler));
+
+    // Start periodic token validation (every 5 minutes)
+    const validationInterval = setInterval(
+      () => {
+        void this.revalidateSession();
+      },
+      5 * 60 * 1000
+    );
+    this.disposables.push({ dispose: () => clearInterval(validationInterval) });
+  }
+
+  /**
+   * Revalidates the current session.
+   */
+  private async revalidateSession(): Promise<void> {
+    if (!this.accessToken) return;
+
+    const isValid = await this.validateToken(this.accessToken);
+    if (!isValid) {
+      this.logger.warn('Token expired or invalidated during background check');
+      await this.logout();
+    }
   }
 
   /**
@@ -58,6 +80,12 @@ export class AuthService implements vscode.Disposable {
    */
   async isAuthenticated(): Promise<boolean> {
     if (this.accessToken) {
+      // Validate in background if enough time has passed (e.g. 5 minutes)
+      // For now, we'll optimistically return true but verify in background
+      // If invalid, it will trigger logout which fires the event
+      // To strictly enforce validation on every check would add latency
+
+      // Simple expiration check could be added here if we had the expiry time
       return true;
     }
 

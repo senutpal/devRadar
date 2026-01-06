@@ -70,7 +70,7 @@ function toUserDTO(user: {
 /**
  * Register user routes.
  */
-export async function userRoutes(app: FastifyInstance): Promise<void> {
+export function userRoutes(app: FastifyInstance): void {
   const db = getDb();
 
   /**

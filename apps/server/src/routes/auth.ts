@@ -33,10 +33,11 @@ const GitHubAuthQuerySchema = z.object({
     .string()
     .refine(
       (uri) =>
-        !uri ||
         uri.startsWith('vscode://') ||
         uri.startsWith('vscode-insiders://') ||
-        uri.startsWith('http'),
+        uri.startsWith('https://') ||
+        // Allow http:// only in development for local testing
+        (!isProduction && uri.startsWith('http://')),
       'Invalid redirect URI scheme'
     )
     .optional(),
@@ -45,7 +46,7 @@ const GitHubAuthQuerySchema = z.object({
 /**
  * Register authentication routes.
  */
-export async function authRoutes(app: FastifyInstance): Promise<void> {
+export function authRoutes(app: FastifyInstance): void {
   /**
    * GET /auth/github
    * Redirect to GitHub OAuth authorization page.

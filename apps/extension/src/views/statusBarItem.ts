@@ -26,7 +26,7 @@ export class StatusBarManager implements vscode.Disposable {
     // Reserved for future use
     void _wsClient;
     void _logger;
-    // Create status bar item with high priority (shown on the left)
+    // Create status bar item with high priority (shown on the right, near the right edge)
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
     this.statusBarItem.command = 'devradar.setStatus';

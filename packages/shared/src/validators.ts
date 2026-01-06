@@ -26,6 +26,7 @@ export const MessageTypeSchema = z.enum([
   'ACHIEVEMENT',
   'ERROR',
   'HEARTBEAT',
+  'PONG',
 ]);
 
 /**

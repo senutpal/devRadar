@@ -78,7 +78,7 @@ export function userRoutes(app: FastifyInstance): void {
    * Get current authenticated user's profile.
    */
   app.get(
-    '/users/me',
+    '/me',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -108,8 +108,46 @@ export function userRoutes(app: FastifyInstance): void {
    * GET /users/:id
    * Get user by ID (public profile).
    */
+  /**
+   * GET /users/search
+   * Search users by username.
+   */
   app.get(
-    '/users/:id',
+    '/search',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const queryResult = SearchQuerySchema.safeParse(request.query);
+
+      if (!queryResult.success) {
+        throw new ValidationError('Search query must be at least 2 characters');
+      }
+
+      const { q: query } = queryResult.data;
+
+      const users = await db.user.findMany({
+        where: {
+          OR: [
+            { username: { contains: query, mode: 'insensitive' } },
+            { displayName: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+        take: 20,
+      });
+
+      return reply.send({
+        data: users,
+      });
+    }
+  );
+
+  app.get(
+    '/:id',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const result = UserIdParamsSchema.safeParse(request.params);
@@ -178,7 +216,7 @@ export function userRoutes(app: FastifyInstance): void {
    * Update current user's profile.
    */
   app.patch(
-    '/users/me',
+    '/me',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
@@ -217,37 +255,4 @@ export function userRoutes(app: FastifyInstance): void {
    * GET /users/search
    * Search users by username.
    */
-  app.get(
-    '/users/search',
-    { onRequest: [app.authenticate] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const queryResult = SearchQuerySchema.safeParse(request.query);
-
-      if (!queryResult.success) {
-        throw new ValidationError('Search query must be at least 2 characters');
-      }
-
-      const { q: query } = queryResult.data;
-
-      const users = await db.user.findMany({
-        where: {
-          OR: [
-            { username: { contains: query, mode: 'insensitive' } },
-            { displayName: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        select: {
-          id: true,
-          username: true,
-          displayName: true,
-          avatarUrl: true,
-        },
-        take: 20,
-      });
-
-      return reply.send({
-        data: users,
-      });
-    }
-  );
 }

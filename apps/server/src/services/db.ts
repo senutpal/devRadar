@@ -1,8 +1,5 @@
 /**
  * Database Service
- *
- * Prisma 7 client with PostgreSQL adapter for direct database connections.
- * Follows hexagonal architecture - this is a secondary adapter.
  */
 
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -18,13 +15,11 @@ let prisma: PrismaClient | null = null;
 
 /**
  * Get or create the Prisma client instance.
- * Uses Prisma 7's adapter pattern for database connections.
  *
  * @returns Prisma client instance
  */
 export function getDb(): PrismaClient {
   if (!prisma) {
-    // Prisma 7 uses adapter pattern with connectionString
     const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
 
     prisma = new PrismaClient({
@@ -47,9 +42,9 @@ export async function connectDb(): Promise<void> {
 
   try {
     await db.$connect();
-    logger.info('✅ Connected to PostgreSQL database');
+    logger.info('Connected to PostgreSQL database');
   } catch (error) {
-    logger.fatal({ error }, '❌ Failed to connect to database');
+    logger.fatal({ error }, 'Failed to connect to database');
     throw error;
   }
 }
@@ -80,6 +75,3 @@ export async function isDbHealthy(): Promise<boolean> {
     return false;
   }
 }
-
-// Note: Use getDb() instead of a direct export to allow test mocking
-// and prevent side effects on import

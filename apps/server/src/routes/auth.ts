@@ -26,6 +26,24 @@ const CallbackQuerySchema = z.object({
 });
 
 /**
+ * GitHub auth query params schema.
+ */
+const GitHubAuthQuerySchema = z.object({
+  redirect_uri: z
+    .string()
+    .refine(
+      (uri) =>
+        uri.startsWith('vscode://') ||
+        uri.startsWith('vscode-insiders://') ||
+        uri.startsWith('https://') ||
+        // Allow http:// only in development for local testing
+        (!isProduction && uri.startsWith('http://')),
+      'Invalid redirect URI scheme'
+    )
+    .optional(),
+});
+
+/**
  * Register authentication routes.
  */
 export function authRoutes(app: FastifyInstance): void {
@@ -33,7 +51,11 @@ export function authRoutes(app: FastifyInstance): void {
    * GET /auth/github
    * Redirect to GitHub OAuth authorization page.
    */
-  app.get('/auth/github', async (_request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
+    // Parse query params
+    const queryResult = GitHubAuthQuerySchema.safeParse(request.query);
+    const redirectUri = queryResult.success ? queryResult.data.redirect_uri : undefined;
+
     // Generate state for CSRF protection
     const state = crypto.randomUUID();
 
@@ -45,9 +67,19 @@ export function authRoutes(app: FastifyInstance): void {
       maxAge: 600, // 10 minutes
     });
 
+    // Store redirect_uri in cookie for callback
+    if (redirectUri) {
+      reply.setCookie('oauth_redirect_uri', redirectUri, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax',
+        maxAge: 600, // 10 minutes
+      });
+    }
+
     const authUrl = getGitHubAuthUrl(state);
 
-    logger.debug({ state }, 'Redirecting to GitHub OAuth');
+    logger.debug({ state, redirectUri }, 'Redirecting to GitHub OAuth');
 
     return reply.redirect(authUrl);
   });
@@ -58,7 +90,7 @@ export function authRoutes(app: FastifyInstance): void {
    * Returns JWT token on success.
    */
   app.get(
-    '/auth/callback',
+    '/callback',
     {
       config: {
         // Rate limiting: 10 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit)
@@ -120,8 +152,23 @@ export function authRoutes(app: FastifyInstance): void {
 
       logger.info({ userId: user.id }, 'User authenticated successfully');
 
-      // Return token and user info
-      // In production, the extension would intercept this or use a custom URI scheme
+      // Check for VS Code redirect URI
+      const redirectUri = request.cookies.oauth_redirect_uri;
+      reply.clearCookie('oauth_redirect_uri');
+
+      if (
+        redirectUri &&
+        (redirectUri.startsWith('vscode://') || redirectUri.startsWith('vscode-insiders://'))
+      ) {
+        // Redirect to VS Code extension with token
+        const vsCodeUrl = new URL(redirectUri);
+        vsCodeUrl.searchParams.set('token', token);
+
+        logger.debug({ redirectUri: vsCodeUrl.toString() }, 'Redirecting to VS Code');
+        return reply.redirect(vsCodeUrl.toString());
+      }
+
+      // Fallback: Return token and user info as JSON
       return reply.send({
         data: {
           token,
@@ -142,7 +189,7 @@ export function authRoutes(app: FastifyInstance): void {
    * Refresh JWT token (requires valid token).
    */
   app.post(
-    '/auth/refresh',
+    '/refresh',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = request.user as { userId: string; username: string; tier: string };
@@ -167,7 +214,7 @@ export function authRoutes(app: FastifyInstance): void {
    * Logout and blacklist the current token.
    */
   app.post(
-    '/auth/logout',
+    '/logout',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {

@@ -17,13 +17,16 @@ export type RoleType = 'OWNER' | 'ADMIN' | 'MEMBER';
  * WebSocket message types.
  */
 export type MessageType =
+  | 'AUTH'
+  | 'AUTH_SUCCESS'
   | 'STATUS_UPDATE'
   | 'FRIEND_STATUS'
   | 'POKE'
   | 'CONFLICT_ALERT'
   | 'ACHIEVEMENT'
   | 'ERROR'
-  | 'HEARTBEAT';
+  | 'HEARTBEAT'
+  | 'PONG';
 
 /**
  * Unix timestamp in milliseconds (value returned by Date.now()).

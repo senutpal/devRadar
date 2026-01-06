@@ -1,0 +1,240 @@
+{
+  "name": "devradar",
+  "displayName": "DevRadar",
+  "description": "Discord Status for VS Code - See what your friends are coding in real-time",
+  "version": "0.1.0",
+  "publisher": "devradar",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/senutpal/devRadar"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "presence",
+    "friends",
+    "social",
+    "status",
+    "coding"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devradar",
+          "title": "DevRadar",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "devradar": [
+        {
+          "id": "devradar.friends",
+          "name": "Friends",
+          "icon": "media/friends.svg",
+          "contextualTitle": "DevRadar Friends"
+        },
+        {
+          "id": "devradar.activity",
+          "name": "Activity",
+          "icon": "media/activity.svg",
+          "contextualTitle": "DevRadar Activity"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "devradar.friends",
+        "contents": "Welcome to DevRadar! 🚀\n\nConnect with your developer friends and see what they're coding in real-time.\n\n[Login with GitHub](command:devradar.login)",
+        "when": "!devradar.isAuthenticated"
+      }
+    ],
+    "commands": [
+      {
+        "command": "devradar.login",
+        "title": "Login with GitHub",
+        "category": "DevRadar",
+        "icon": "$(github)"
+      },
+      {
+        "command": "devradar.logout",
+        "title": "Logout",
+        "category": "DevRadar",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "devradar.togglePrivacy",
+        "title": "Toggle Privacy Mode",
+        "category": "DevRadar",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "devradar.poke",
+        "title": "Poke Friend",
+        "category": "DevRadar",
+        "icon": "$(bell)"
+      },
+      {
+        "command": "devradar.refreshFriends",
+        "title": "Refresh Friends",
+        "category": "DevRadar",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "devradar.viewProfile",
+        "title": "View Profile",
+        "category": "DevRadar",
+        "icon": "$(account)"
+      },
+      {
+        "command": "devradar.setStatus",
+        "title": "Set Status",
+        "category": "DevRadar",
+        "icon": "$(broadcast)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "devradar.refreshFriends",
+          "when": "view == devradar.friends",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "devradar.poke",
+          "when": "view == devradar.friends && viewItem == friend-online",
+          "group": "inline"
+        },
+        {
+          "command": "devradar.viewProfile",
+          "when": "view == devradar.friends"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DevRadar",
+      "properties": {
+        "devradar.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "DevRadar server URL (override with DEVRADAR_SERVER_URL env var in production)"
+        },
+        "devradar.wsUrl": {
+          "type": "string",
+          "default": "ws://localhost:3000/ws",
+          "description": "DevRadar WebSocket URL (override with DEVRADAR_WS_URL env var in production)"
+        },
+        "devradar.privacyMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable privacy mode to hide your activity from friends"
+        },
+        "devradar.showFileName": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current file name in your status"
+        },
+        "devradar.showProject": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current project name in your status"
+        },
+        "devradar.showLanguage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current programming language in your status"
+        },
+        "devradar.blacklistedFiles": {
+          "type": "array",
+          "default": [
+            ".env",
+            ".env.*",
+            "*.pem",
+            "*.key",
+            "*.secret",
+            "**/secrets/**",
+            "**/credentials/**"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "File patterns to never broadcast (for privacy)"
+        },
+        "devradar.blacklistedWorkspaces": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Workspace folder names to never broadcast activity from"
+        },
+        "devradar.idleTimeout": {
+          "type": "number",
+          "default": 300000,
+          "minimum": 60000,
+          "maximum": 3600000,
+          "description": "Time in milliseconds before being marked as idle (default: 5 minutes)"
+        },
+        "devradar.heartbeatInterval": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 10000,
+          "maximum": 60000,
+          "description": "Heartbeat interval in milliseconds (default: 60 seconds; lower values increase server load)"
+        },
+        "devradar.enableNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications when friends come online or poke you"
+        },
+        "devradar.showStatusBarItem": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show DevRadar status in the status bar"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run build",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "dev": "pnpm run watch",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies",
+    "clean": "rimraf dist out"
+  },
+  "dependencies": {
+    "@devradar/shared": "workspace:*",
+    "minimatch": "^10.1.1"
+  },
+  "devDependencies": {
+    "@devradar/eslint-config": "workspace:*",
+    "@devradar/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.39.2",
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3"
+  }
+}

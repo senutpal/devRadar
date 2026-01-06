@@ -12,16 +12,10 @@ import { AuthenticationError, InternalError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
 
-/**
- * GitHub OAuth endpoints.
- */
 const GITHUB_OAUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
 
-/**
- * GitHub user profile from API.
- */
 interface GitHubUser {
   id: number;
   login: string;
@@ -30,9 +24,6 @@ interface GitHubUser {
   email: string | null;
 }
 
-/**
- * OAuth token response from GitHub.
- */
 interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -41,9 +32,6 @@ interface TokenResponse {
   error_description?: string;
 }
 
-/**
- * GitHub API request timeout in milliseconds.
- */
 const GITHUB_API_TIMEOUT_MS = 10000;
 
 /**

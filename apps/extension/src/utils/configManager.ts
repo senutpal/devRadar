@@ -4,8 +4,8 @@
  * Provides type-safe access to extension configuration with caching.
  */
 
-import * as vscode from 'vscode';
 import { minimatch } from 'minimatch';
+import * as vscode from 'vscode';
 
 /**
  * Extension configuration schema.

@@ -41,6 +41,9 @@ importers:
       '@devradar/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      minimatch:
+        specifier: ^10.1.1
+        version: 10.1.1
     devDependencies:
       '@devradar/eslint-config':
         specifier: workspace:*

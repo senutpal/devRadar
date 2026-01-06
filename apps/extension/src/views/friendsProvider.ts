@@ -6,11 +6,8 @@
 
 import * as vscode from 'vscode';
 
-import type { AuthService } from '../services/authService';
-import type { ConfigManager } from '../utils/configManager';
-import type { WebSocketClient } from '../services/wsClient';
 import type { Logger } from '../utils/logger';
-import type { UserDTO, UserStatus, UserStatusType } from '@devradar/shared';
+import type { ActivityPayload, UserDTO, UserStatus, UserStatusType } from '@devradar/shared';
 
 /**
  * Friend item with status information.
@@ -221,19 +218,80 @@ export class FriendsProvider
     FriendTreeItem | GroupTreeItem | undefined
   >();
   private friends = new Map<string, FriendInfo>();
-  private isAuthenticated = false;
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
-  constructor(
-    private readonly authService: AuthService,
-    private readonly configManager: ConfigManager,
-    private readonly logger: Logger
-  ) {
+  constructor(private readonly logger: Logger) {
     this.disposables.push(this.onDidChangeTreeDataEmitter);
   }
 
-  // ... (keeping method order)
+  /**
+   * Returns a tree item for the given element.
+   */
+  getTreeItem(element: FriendTreeItem | GroupTreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  /**
+   * Returns children for the given element or root elements if no element is provided.
+   */
+  getChildren(element?: FriendTreeItem | GroupTreeItem): (FriendTreeItem | GroupTreeItem)[] {
+    if (element instanceof GroupTreeItem) {
+      // Return friends filtered by the group's status
+      const statusGroup = element.statusGroup;
+      const friendsList = Array.from(this.friends.values());
+
+      if (statusGroup === 'all') {
+        return friendsList.map((friend) => new FriendTreeItem(friend));
+      }
+
+      return friendsList
+        .filter((friend) => friend.status === statusGroup)
+        .map((friend) => new FriendTreeItem(friend));
+    }
+
+    // Root level: return groups with counts
+    const friendsList = Array.from(this.friends.values());
+    const groups: GroupTreeItem[] = [];
+
+    const onlineCount = friendsList.filter((f) => f.status === 'online').length;
+    const idleCount = friendsList.filter((f) => f.status === 'idle').length;
+    const dndCount = friendsList.filter((f) => f.status === 'dnd').length;
+    const offlineCount = friendsList.filter((f) => f.status === 'offline').length;
+
+    if (onlineCount > 0) groups.push(new GroupTreeItem('online', onlineCount));
+    if (idleCount > 0) groups.push(new GroupTreeItem('idle', idleCount));
+    if (dndCount > 0) groups.push(new GroupTreeItem('dnd', dndCount));
+    if (offlineCount > 0) groups.push(new GroupTreeItem('offline', offlineCount));
+
+    return groups;
+  }
+
+  /**
+   * Refreshes the friends tree view.
+   */
+  refresh(): void {
+    this.onDidChangeTreeDataEmitter.fire(undefined);
+  }
+
+  /**
+   * Builds activity info from ActivityPayload.
+   */
+  private buildActivityInfo(activity: ActivityPayload): FriendInfo['activity'] {
+    const result: FriendInfo['activity'] = {
+      sessionDuration: activity.sessionDuration,
+    };
+    if (activity.fileName !== undefined) {
+      result.fileName = activity.fileName;
+    }
+    if (activity.language !== undefined) {
+      result.language = activity.language;
+    }
+    if (activity.project !== undefined) {
+      result.project = activity.project;
+    }
+    return result;
+  }
 
   /**
    * Handles friend status update from WebSocket.
@@ -282,55 +340,6 @@ export class FriendsProvider
     return Array.from(this.friends.values()).filter(
       (f) => f.status === 'online' || f.status === 'idle'
     );
-  }
-
-  /**
-   * Fetches friends list from server.
-   */
-  private async fetchFriends(): Promise<void> {
-    try {
-      const token = this.authService.getToken();
-      if (!token) {
-        return;
-      }
-
-      this.logger.debug('Fetching friends list from server...');
-      const serverUrl = this.configManager.get('serverUrl');
-
-      const response = await fetch(`${serverUrl}/api/v1/friends?limit=100`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch friends: ${String(response.status)}`);
-      }
-
-      const json = (await response.json()) as { data: any[] };
-      const friendsList = json.data;
-
-      this.friends.clear();
-
-      for (const friendData of friendsList) {
-        const friend: FriendInfo = {
-          id: friendData.id,
-          username: friendData.username,
-          displayName: friendData.displayName,
-          avatarUrl: friendData.avatarUrl,
-          status: friendData.status,
-          activity: friendData.activity,
-          lastUpdated: Date.now(),
-        };
-        this.friends.set(friend.id, friend);
-      }
-
-      this.onDidChangeTreeDataEmitter.fire(undefined);
-      this.logger.info(`Fetched ${String(this.friends.size)} friends`);
-    } catch (error) {
-      this.logger.error('Failed to fetch friends', error);
-      void vscode.window.showErrorMessage('DevRadar: Failed to load friends list');
-    }
   }
 
   /**

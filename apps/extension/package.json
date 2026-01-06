@@ -223,7 +223,8 @@
     "clean": "rimraf dist out"
   },
   "dependencies": {
-    "@devradar/shared": "workspace:*"
+    "@devradar/shared": "workspace:*",
+    "minimatch": "^10.1.1"
   },
   "devDependencies": {
     "@devradar/eslint-config": "workspace:*",

@@ -17,6 +17,8 @@ export type RoleType = 'OWNER' | 'ADMIN' | 'MEMBER';
  * WebSocket message types.
  */
 export type MessageType =
+  | 'AUTH'
+  | 'AUTH_SUCCESS'
   | 'STATUS_UPDATE'
   | 'FRIEND_STATUS'
   | 'POKE'

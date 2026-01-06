@@ -42,7 +42,7 @@ class DevRadarExtension implements vscode.Disposable {
     this.activityTracker = new ActivityTracker(this.wsClient, this.configManager, this.logger);
 
     // Initialize views
-    this.friendsProvider = new FriendsProvider(this.authService, this.configManager, this.logger);
+    this.friendsProvider = new FriendsProvider(this.logger);
     this.activityProvider = new ActivityProvider(this.wsClient, this.logger);
     this.statusBar = new StatusBarManager(this.wsClient, this.authService, this.logger);
 
@@ -330,9 +330,11 @@ class DevRadarExtension implements vscode.Disposable {
 
     const trimmedMessage = message.trim();
     // Sanitize: strip control characters (except simple whitespace) and HTML-like tags
+    /* eslint-disable no-control-regex */
     const sanitizedMessage = trimmedMessage
       .replace(/[\u0000-\u001f\u007f-\u009f]/g, '') // Remove control chars
       .replace(/<[^>]*>/g, ''); // Remove HTML tags
+    /* eslint-enable no-control-regex */
 
     this.wsClient.sendPoke(userId, sanitizedMessage);
     void vscode.window.showInformationMessage('DevRadar: Poke sent! 👋');

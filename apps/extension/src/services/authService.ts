@@ -59,7 +59,11 @@ export class AuthService implements vscode.Disposable {
       },
       5 * 60 * 1000
     );
-    this.disposables.push({ dispose: () => clearInterval(validationInterval) });
+    this.disposables.push({
+      dispose: () => {
+        clearInterval(validationInterval);
+      },
+    });
   }
 
   /**

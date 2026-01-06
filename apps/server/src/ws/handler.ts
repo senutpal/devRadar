@@ -206,11 +206,11 @@ async function unsubscribeFromFriends(ws: AuthenticatedWebSocket): Promise<void>
 /**
  * Handle heartbeat message.
  */
-async function handleHeartbeat(
+function handleHeartbeat(
   ws: AuthenticatedWebSocket,
   payload: unknown,
   correlationId?: string
-): Promise<void> {
+): void {
   const result = HeartbeatMessageSchema.safeParse(payload);
 
   if (!result.success) {
@@ -311,7 +311,7 @@ async function handleMessage(ws: AuthenticatedWebSocket, data: string): Promise<
 
     switch (type) {
       case 'HEARTBEAT':
-        await handleHeartbeat(ws, payload, correlationId);
+        handleHeartbeat(ws, payload, correlationId);
         break;
 
       case 'STATUS_UPDATE':

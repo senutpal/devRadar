@@ -1,75 +1,47 @@
-name: devradar
+version: '3.8'
 
 services:
-  redis:
-    image: redis:8-alpine
-    container_name: devradar-redis
+  server:
+    build: .
     ports:
-      - '6379:6379'
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:17-alpine
-    container_name: devradar-postgres
-    ports:
-      - '5432:5432'
+      - '8000:8000'
     environment:
-      POSTGRES_DB: devradar
-      POSTGRES_USER: devradar
-      POSTGRES_PASSWORD: devradar
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U devradar -d devradar']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: devradar-pgadmin
-    ports:
-      - '5050:80'
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@devradar.local
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - NODE_ENV=production
+      - PORT=8000
+      - DATABASE_URL=postgresql://devradar:devradar@postgres:5432/devradar
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=local-development-secret-key-that-is-at-least-32-characters-long
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-test}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-test}
+      - GITHUB_CALLBACK_URL=http://localhost:8000/auth/callback
+      - LOG_LEVEL=debug
     depends_on:
       postgres:
         condition: service_healthy
-    profiles:
-      - tools
-    restart: unless-stopped
-
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: devradar-redis-commander
-    ports:
-      - '8081:8081'
-    environment:
-      REDIS_HOSTS: local:redis:6379
-    depends_on:
       redis:
         condition: service_healthy
-    profiles:
-      - tools
-    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=devradar
+      - POSTGRES_PASSWORD=devradar
+      - POSTGRES_DB=devradar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devradar']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  redis_data:
-    name: devradar_redis_data
   postgres_data:
-    name: devradar_postgres_data
-  pgadmin_data:
-    name: devradar_pgadmin_data

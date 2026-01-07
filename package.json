@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "build:server": "pnpm --filter @devradar/server db:generate && pnpm --filter @devradar/shared build && pnpm --filter @devradar/server build",
+    "heroku-postbuild": "pnpm build:server",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",

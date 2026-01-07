@@ -1,0 +1,44 @@
+# Dependencies - will be installed fresh in container
+node_modules
+**/node_modules
+
+# Build outputs
+**/dist
+**/.turbo
+
+# Development files
+.git
+.gitignore
+.github
+.vscode
+.agent
+.gemini
+
+# Extension (not needed for server build)
+apps/extension
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+**/test
+**/tests
+**/__tests__
+
+# Config files not needed in build
+.eslintrc*
+.prettierrc*
+.editorconfig
+*.config.js
+!esbuild.config.mjs
+
+# Logs and misc
+*.log
+.env*
+!.env.example
+.DS_Store
+Thumbs.db

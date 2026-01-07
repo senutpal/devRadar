@@ -7,10 +7,14 @@ export type TierType = 'FREE' | 'PRO' | 'TEAM';
 /*** Team member role ***/
 export type RoleType = 'OWNER' | 'ADMIN' | 'MEMBER';
 
+/*** Friend request status ***/
+export type FriendRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
 /*** WebSocket message types ***/
 export type MessageType =
   | 'AUTH'
   | 'AUTH_SUCCESS'
+  | 'CONNECTED'
   | 'STATUS_UPDATE'
   | 'FRIEND_STATUS'
   | 'POKE'
@@ -18,7 +22,9 @@ export type MessageType =
   | 'ACHIEVEMENT'
   | 'ERROR'
   | 'HEARTBEAT'
-  | 'PONG';
+  | 'PONG'
+  | 'FRIEND_REQUEST_RECEIVED'
+  | 'FRIEND_REQUEST_ACCEPTED';
 
 /*** Unix timestamp in milliseconds (value returned by Date.now()) ***/
 export type EpochMillis = number;
@@ -81,6 +87,35 @@ export interface UserDTO {
   privacyMode: boolean;
   /** Account creation timestamp as ISO 8601 / RFC3339 string (e.g., "2024-01-01T12:00:00Z") */
   createdAt: string;
+}
+
+/*** Minimal public user info for friend requests and search results ***/
+export interface PublicUserDTO {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+/*** Friend request data transfer object ***/
+export interface FriendRequestDTO {
+  id: string;
+  fromUser: PublicUserDTO;
+  toUser: PublicUserDTO;
+  status: FriendRequestStatus;
+  /** Request creation timestamp as ISO 8601 string */
+  createdAt: string;
+}
+
+/*** WebSocket payload: Friend request received ***/
+export interface FriendRequestReceivedPayload {
+  request: FriendRequestDTO;
+}
+
+/*** WebSocket payload: Friend request accepted ***/
+export interface FriendRequestAcceptedPayload {
+  requestId: string;
+  friend: PublicUserDTO;
 }
 
 /*** Poke request payload ***/

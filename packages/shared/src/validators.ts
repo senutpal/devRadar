@@ -9,6 +9,9 @@ export const TierSchema = z.enum(['FREE', 'PRO', 'TEAM']);
 /*** Role schema ***/
 export const RoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
 
+/*** Friend request status schema ***/
+export const FriendRequestStatusSchema = z.enum(['PENDING', 'ACCEPTED', 'REJECTED']);
+
 /*** Message type schema ***/
 export const MessageTypeSchema = z.enum([
   'STATUS_UPDATE',
@@ -19,6 +22,9 @@ export const MessageTypeSchema = z.enum([
   'ERROR',
   'HEARTBEAT',
   'PONG',
+  'CONNECTED',
+  'FRIEND_REQUEST_RECEIVED',
+  'FRIEND_REQUEST_ACCEPTED',
 ]);
 
 /*** Activity payload schema ***/
@@ -70,6 +76,12 @@ export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
+
+/*** Send friend request schema ***/
+export const SendFriendRequestSchema = z.object({
+  toUserId: z.string().min(1, 'User ID is required'),
+});
+
 /* Type exports from schemas */
 export type ActivityPayloadInput = z.infer<typeof ActivityPayloadSchema>;
 export type UserStatusInput = z.infer<typeof UserStatusSchema>;
@@ -78,3 +90,5 @@ export type PokePayloadInput = z.infer<typeof PokePayloadSchema>;
 export type LoginRequestInput = z.infer<typeof LoginRequestSchema>;
 export type UserUpdateInput = z.infer<typeof UserUpdateSchema>;
 export type PaginationQueryInput = z.infer<typeof PaginationQuerySchema>;
+export type SendFriendRequestInput = z.infer<typeof SendFriendRequestSchema>;
+export type FriendRequestStatusInput = z.infer<typeof FriendRequestStatusSchema>;

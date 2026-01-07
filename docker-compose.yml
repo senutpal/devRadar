@@ -34,7 +34,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Optional: PgAdmin for database management
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: devradar-pgadmin
@@ -53,7 +52,6 @@ services:
       - tools
     restart: unless-stopped
 
-  # Optional: Redis Commander for Redis management
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: devradar-redis-commander

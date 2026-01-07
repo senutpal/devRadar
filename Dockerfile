@@ -8,7 +8,7 @@ COPY apps/server/package.json ./apps/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 FROM deps AS builder
 COPY . .
@@ -18,29 +18,26 @@ RUN pnpm --filter @devradar/server db:generate
 RUN pnpm --filter @devradar/shared build
 RUN pnpm --filter @devradar/server build
 
-FROM base AS prod-deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/server/package.json ./apps/server/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/tsconfig/package.json ./packages/tsconfig/
-COPY packages/eslint-config/package.json ./packages/eslint-config/
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
-
 FROM node:22-alpine AS runner
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 devradar
 
-COPY --from=prod-deps /app/node_modules ./node_modules
+# Copy node_modules from deps stage (includes all dependencies)
+COPY --from=deps /app/node_modules ./node_modules
 
+# Copy built shared package
 COPY --from=builder /app/packages/shared/dist ./node_modules/@devradar/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./node_modules/@devradar/shared/
 
+# Copy server build output
 COPY --from=builder /app/apps/server/dist ./dist
 
+# Copy Prisma generated client
 COPY --from=builder /app/apps/server/src/generated ./src/generated
 
+# Copy server package.json
 COPY --from=builder /app/apps/server/package.json ./
 
 RUN chown -R devradar:nodejs /app

@@ -22,6 +22,7 @@ import { env, isProduction, isDevelopment } from '@/config';
 import { toAppError, AuthenticationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { authRoutes } from '@/routes/auth';
+import { friendRequestRoutes } from '@/routes/friendRequests';
 import { friendRoutes } from '@/routes/friends';
 import { userRoutes } from '@/routes/users';
 import { connectDb, disconnectDb, isDbHealthy } from '@/services/db';
@@ -213,6 +214,7 @@ async function buildServer() {
     (api, _opts, done) => {
       api.register(userRoutes, { prefix: '/users' });
       api.register(friendRoutes, { prefix: '/friends' });
+      api.register(friendRequestRoutes, { prefix: '/friend-requests' });
       done();
     },
     { prefix: '/api/v1' }

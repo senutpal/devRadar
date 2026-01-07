@@ -10,6 +10,7 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 COPY . .
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN pnpm --filter @devradar/server db:generate
 RUN pnpm --filter @devradar/server build
 

@@ -236,7 +236,7 @@ export function friendRoutes(app: FastifyInstance): void {
   );
 
   /*** DELETE /friends/:id
-   * Unfollow a user ***/
+   * Unfriend a user (removes bidirectional follow relationship) ***/
   app.delete(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -249,30 +249,32 @@ export function friendRoutes(app: FastifyInstance): void {
       }
 
       const { id: targetUserId } = paramsResult.data;
-      /* Find and delete follow */
-      const follow = await db.follow.findUnique({
+
+      /* Check if friendship exists (at least one direction) */
+      const existingFollow = await db.follow.findFirst({
         where: {
-          followerId_followingId: {
-            followerId: userId,
-            followingId: targetUserId,
-          },
+          OR: [
+            { followerId: userId, followingId: targetUserId },
+            { followerId: targetUserId, followingId: userId },
+          ],
         },
       });
 
-      if (!follow) {
-        throw new NotFoundError('Follow relationship');
+      if (!existingFollow) {
+        throw new NotFoundError('Friendship');
       }
 
-      await db.follow.delete({
+      /* Delete both directions (unfriend is bidirectional) */
+      await db.follow.deleteMany({
         where: {
-          followerId_followingId: {
-            followerId: userId,
-            followingId: targetUserId,
-          },
+          OR: [
+            { followerId: userId, followingId: targetUserId },
+            { followerId: targetUserId, followingId: userId },
+          ],
         },
       });
 
-      logger.info({ userId, targetUserId }, 'User unfollowed');
+      logger.info({ userId, targetUserId }, 'Users unfriended (bidirectional)');
 
       return reply.status(204).send();
     }

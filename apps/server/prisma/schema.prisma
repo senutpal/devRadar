@@ -25,6 +25,9 @@ model User {
   teams      TeamMember[]
   ownedTeams Team[]       @relation("TeamOwner")
 
+  sentFriendRequests     FriendRequest[] @relation("SentRequests")
+  receivedFriendRequests FriendRequest[] @relation("ReceivedRequests")
+
   @@index([username])
   @@index([githubId])
 }
@@ -40,6 +43,25 @@ model Follow {
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+/// Friend request between two users.
+/// When accepted, bidirectional Follow entries are created.
+model FriendRequest {
+  id        String              @id @default(cuid())
+  fromId    String
+  toId      String
+  status    FriendRequestStatus @default(PENDING)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  from User @relation("SentRequests", fields: [fromId], references: [id], onDelete: Cascade)
+  to   User @relation("ReceivedRequests", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+  @@index([fromId])
+  @@index([toId])
+  @@index([status])
 }
 
 model Team {
@@ -59,11 +81,11 @@ model Team {
 }
 
 model TeamMember {
-  id        String   @id @default(cuid())
-  userId    String
-  teamId    String
-  role      Role     @default(MEMBER)
-  joinedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  userId   String
+  teamId   String
+  role     Role     @default(MEMBER)
+  joinedAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -83,4 +105,10 @@ enum Role {
   OWNER
   ADMIN
   MEMBER
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }

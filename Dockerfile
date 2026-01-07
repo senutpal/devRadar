@@ -36,7 +36,7 @@ RUN pnpm --filter @devradar/server build
 
 # Create a production deployment using pnpm deploy
 # This creates a standalone directory with all production dependencies
-RUN pnpm --filter @devradar/server deploy --prod /prod/server
+RUN pnpm --filter @devradar/server deploy --legacy --prod /prod/server
 
 # Copy build artifacts into the deployment directory
 # (pnpm deploy only copies source files, not build output)

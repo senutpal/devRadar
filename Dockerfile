@@ -31,6 +31,7 @@ COPY . .
 
 # Set dummy DATABASE_URL for Prisma generate (doesn't need real connection)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV SHADOW_DATABASE_URL="postgresql://dummy:dummy@localhost:5432/shadow"
 
 # Generate Prisma Client
 RUN pnpm --filter @devradar/server db:generate

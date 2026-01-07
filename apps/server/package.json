@@ -7,7 +7,7 @@
   "main": "./dist/server.js",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
@@ -45,6 +45,7 @@
     "eslint": "^9.39.2",
     "prisma": "^7.2.0",
     "rimraf": "^6.1.2",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

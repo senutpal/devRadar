@@ -24,7 +24,7 @@ COPY apps/server/package.json ./apps/server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 FROM node:22-alpine AS runner
 WORKDIR /app

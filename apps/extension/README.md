@@ -32,22 +32,22 @@ _Note: Once published, you will be able to install it from the VS Code Marketpla
 
 Access settings via `File > Preferences > Settings` and search for "DevRadar".
 
-| Setting                          | Default                                      | Description                                                 |
-| -------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
-| Setting                          | Default                                      | Description                                                 |
-| -------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
-| `devradar.privacyMode`           | `false`                                      | Hide your activity from friends                             |
-| `devradar.showFileName`          | `true`                                       | Show current file name                                      |
-| `devradar.showProject`           | `true`                                       | Show project name                                           |
-| `devradar.showLanguage`          | `true`                                       | Show programming language                                   |
-| `devradar.showStatusBarItem`     | `true`                                       | Show DevRadar status in the status bar                      |
-| `devradar.enableNotifications`   | `true`                                       | Show notifications when friends come online or poke you     |
-| `devradar.serverUrl`             | `"http://localhost:3000"`                    | DevRadar server URL (overridable)                           |
-| `devradar.wsUrl`                 | `"ws://localhost:3000/ws"`                   | DevRadar WebSocket URL (overridable)                        |
-| `devradar.blacklistedFiles`      | `[".env", ".env.*", "*.pem", "*.key", ...]`  | File patterns to never broadcast                            |
-| `devradar.blacklistedWorkspaces` | `[]`                                         | Workspace folders to never broadcast                        |
-| `devradar.idleTimeout`           | `300000`                                     | Time (ms) before going idle (5 mins)                        |
-| `devradar.heartbeatInterval`     | `60000`                                      | Heartbeat interval in milliseconds (60s)                    |
+| Setting                          | Default                                              | Description                                                 |
+| -------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| Setting                          | Default                                              | Description                                                 |
+| -------------------------------- | --------------------------------------------         | ----------------------------------------------------------- |
+| `devradar.privacyMode`           | `false`                                              | Hide your activity from friends                             |
+| `devradar.showFileName`          | `true`                                               | Show current file name                                      |
+| `devradar.showProject`           | `true`                                               | Show project name                                           |
+| `devradar.showLanguage`          | `true`                                               | Show programming language                                   |
+| `devradar.showStatusBarItem`     | `true`                                               | Show DevRadar status in the status bar                      |
+| `devradar.enableNotifications`   | `true`                                               | Show notifications when friends come online or poke you     |
+| `devradar.serverUrl`             | `"https://wispy-netti-devradar-c95bfbd3.koyeb.app"`  | DevRadar server URL (overridable)                           |
+| `devradar.wsUrl`                 | `"wss://wispy-netti-devradar-c95bfbd3.koyeb.app/ws"` | DevRadar WebSocket URL (overridable)                        |
+| `devradar.blacklistedFiles`      | `[".env", ".env.*", "*.pem", "*.key", ...]`          | File patterns to never broadcast                            |
+| `devradar.blacklistedWorkspaces` | `[]`                                                 | Workspace folders to never broadcast                        |
+| `devradar.idleTimeout`           | `300000`                                             | Time (ms) before going idle (5 mins)                        |
+| `devradar.heartbeatInterval`     | `60000`                                              | Heartbeat interval in milliseconds (60s)                    |
 
 ## Commands
 

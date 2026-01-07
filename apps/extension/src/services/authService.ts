@@ -200,10 +200,19 @@ export class AuthService implements vscode.Disposable {
         return true;
       }
 
-      return false;
+      /* Only invalidate if strictly Unauthorized or Forbidden */
+      if (response.status === 401 || response.status === 403) {
+        this.logger.warn(`Token invalid: Server returned ${String(response.status)}`);
+        return false;
+      }
+
+      /* For other errors (500, etc), assume token is still valid to preserve session */
+      this.logger.warn(`Server check failed with ${String(response.status)}, preserving session`);
+      return true;
     } catch (error) {
-      this.logger.warn('Token validation failed', error);
-      return false;
+      /* Network error / offline - preserve session */
+      this.logger.warn('Token validation failed (network error), preserving session', error);
+      return true;
     }
   }
 

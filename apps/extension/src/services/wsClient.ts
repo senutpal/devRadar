@@ -90,8 +90,8 @@ export class WebSocketClient implements vscode.Disposable {
 
     try {
       const wsUrl = this.configManager.get('wsUrl');
-      /* Connect without token in URL */
-      this.ws = new WebSocket(wsUrl);
+      /* Connect with token in URL */
+      this.ws = new WebSocket(`${wsUrl}?token=${token}`);
       this.setupWebSocketHandlers();
     } catch (error) {
       this.logger.error('Failed to create WebSocket', error);
@@ -162,17 +162,7 @@ export class WebSocketClient implements vscode.Disposable {
     if (!this.ws) return;
 
     this.ws.onopen = () => {
-      this.logger.info('WebSocket connected, authenticating...');
-
-      /* Perform authentication immediately after connection */
-      const token = this.authService.getToken();
-      if (token) {
-        this.send('AUTH', { token });
-      } else {
-        this.logger.warn('No token available for WebSocket auth');
-        this.disconnect();
-        return;
-      }
+      this.logger.info('WebSocket connected');
 
       this.setConnectionState('connected');
       this.reconnectAttempts = 0;

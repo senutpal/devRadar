@@ -23,8 +23,13 @@ export interface DevRadarConfig {
 
 /*** Default configuration values ***/
 const DEFAULT_CONFIG: DevRadarConfig = {
-  serverUrl: 'http://localhost:3000',
-  wsUrl: 'ws://localhost:3000/ws',
+  /* Production */
+  serverUrl: 'https://wispy-netti-devradar-c95bfbd3.koyeb.app',
+  wsUrl: 'wss://wispy-netti-devradar-c95bfbd3.koyeb.app/ws',
+
+  /* Development */
+  // serverUrl: 'http://localhost:3000',
+  // wsUrl: 'ws://localhost:3000/ws',
   privacyMode: false,
   showFileName: true,
   showProject: true,

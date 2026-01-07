@@ -1,10 +1,10 @@
 {
   "name": "devradar",
   "displayName": "DevRadar",
-  "description": "Discord Status for VS Code - See what your friends are coding in real-time",
-  "version": "0.1.0",
+  "description": "See what your friends are coding in real-time",
+  "version": "0.1.3",
   "publisher": "devradar",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "repository": {
     "type": "git",
@@ -131,13 +131,13 @@
       "properties": {
         "devradar.serverUrl": {
           "type": "string",
-          "default": "http://localhost:3000",
-          "description": "DevRadar server URL (override with DEVRADAR_SERVER_URL env var in production)"
+          "default": "https://wispy-netti-devradar-c95bfbd3.koyeb.app",
+          "description": "DevRadar server URL"
         },
         "devradar.wsUrl": {
           "type": "string",
-          "default": "ws://localhost:3000/ws",
-          "description": "DevRadar WebSocket URL (override with DEVRADAR_WS_URL env var in production)"
+          "default": "wss://wispy-netti-devradar-c95bfbd3.koyeb.app/ws",
+          "description": "DevRadar WebSocket URL"
         },
         "devradar.privacyMode": {
           "type": "boolean",
@@ -222,13 +222,10 @@
     "publish": "vsce publish --no-dependencies",
     "clean": "rimraf dist out"
   },
-  "dependencies": {
-    "@devradar/shared": "workspace:*",
-    "minimatch": "^10.1.1"
-  },
   "devDependencies": {
-    "@devradar/eslint-config": "workspace:*",
-    "@devradar/tsconfig": "workspace:*",
+    "@devradar/shared": "0.0.0",
+    "@devradar/eslint-config": "0.0.0",
+    "@devradar/tsconfig": "0.0.0",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.0.0",

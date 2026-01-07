@@ -9,8 +9,7 @@ import { PrismaClient } from '@/generated/prisma/client';
 import { logger } from '@/lib/logger';
 
 /**
- * Prisma client singleton instance.
- */
+ * Prisma client singleton instance **/
 let prisma: PrismaClient | null = null;
 
 /**
@@ -35,8 +34,7 @@ export function getDb(): PrismaClient {
 
 /**
  * Connect to the database.
- * Call this during server startup.
- */
+ * Call this during server startup **/
 export async function connectDb(): Promise<void> {
   const db = getDb();
 
@@ -51,8 +49,7 @@ export async function connectDb(): Promise<void> {
 
 /**
  * Disconnect from the database.
- * Call this during graceful shutdown.
- */
+ * Call this during graceful shutdown **/
 export async function disconnectDb(): Promise<void> {
   if (prisma) {
     await prisma.$disconnect();

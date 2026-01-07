@@ -1,14 +1,10 @@
-/**
- * Logger Utility
+/*** Logger Utility
  *
- * Provides structured logging with output channel support.
- */
+ * Provides structured logging with output channel support ***/
 
 import * as vscode from 'vscode';
 
-/**
- * Log level enumeration.
- */
+/*** Log level enumeration ***/
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -16,15 +12,13 @@ export enum LogLevel {
   ERROR = 3,
 }
 
-/**
- * Logger implementation with VS Code output channel.
- */
+/*** Logger implementation with VS Code output channel ***/
 export class Logger implements vscode.Disposable {
   private static outputChannel: vscode.OutputChannel | undefined;
   private readonly prefix: string;
   private static minLevel: LogLevel = LogLevel.INFO;
 
-  // Static initialization block
+  /*** Static initialization block ***/
   static {
     if (process.env.NODE_ENV === 'development' || process.env.DEVRADAR_DEBUG) {
       Logger.minLevel = LogLevel.DEBUG;
@@ -34,47 +28,37 @@ export class Logger implements vscode.Disposable {
   constructor(prefix: string) {
     this.prefix = prefix;
 
-    // Create shared output channel
+    /*** Create shared output channel ***/
     Logger.outputChannel ??= vscode.window.createOutputChannel('DevRadar', { log: true });
   }
 
-  /**
-   * Logs a debug message.
-   */
+  /*** Logs a debug message ***/
   debug(message: string, data?: unknown): void {
     this.log(LogLevel.DEBUG, message, data);
   }
 
-  /**
-   * Logs an info message.
-   */
+  /*** Logs an info message ***/
   info(message: string, data?: unknown): void {
     this.log(LogLevel.INFO, message, data);
   }
 
-  /**
-   * Logs a warning message.
-   */
+  /*** Logs a warning message ***/
   warn(message: string, data?: unknown): void {
     this.log(LogLevel.WARN, message, data);
   }
 
-  /**
-   * Logs an error message.
-   */
+  /*** Logs an error message ***/
   error(message: string, error?: unknown): void {
     const errorStack = error instanceof Error ? error.stack : undefined;
     this.log(LogLevel.ERROR, message, errorStack ? `${String(error)}\n${errorStack}` : error);
 
-    // Also log to console for debugging
+    /*** Also log to console for debugging ***/
     if (error instanceof Error) {
       console.error(`[${this.prefix}] ${message}:`, error.message, error.stack);
     }
   }
 
-  /**
-   * Internal log implementation.
-   */
+  /*** Internal log implementation ***/
   private log(level: LogLevel, message: string, data?: unknown): void {
     if (level < Logger.minLevel) {
       return;
@@ -108,23 +92,17 @@ export class Logger implements vscode.Disposable {
     Logger.outputChannel?.appendLine(formattedMessage + dataStr);
   }
 
-  /**
-   * Shows the output channel.
-   */
+  /*** Shows the output channel ***/
   show(): void {
     Logger.outputChannel?.show();
   }
 
-  /**
-   * Sets the minimum log level.
-   */
+  /*** Sets the minimum log level ***/
   static setLevel(level: LogLevel): void {
     Logger.minLevel = level;
   }
 
-  /**
-   * Disposes the shared output channel.
-   */
+  /*** Disposes the shared output channel ***/
   static disposeShared(): void {
     if (Logger.outputChannel) {
       Logger.outputChannel.dispose();
@@ -133,6 +111,6 @@ export class Logger implements vscode.Disposable {
   }
 
   dispose(): void {
-    // Output channel is shared, don't dispose it here
+    /* Output channel is shared, don't dispose it here */
   }
 }

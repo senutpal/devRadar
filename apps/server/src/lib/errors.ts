@@ -1,14 +1,10 @@
-/**
- * Custom Error Classes
+/*** Custom Error Classes
  *
  * Hierarchical error system following rules/09_ERROR_HANDLING.md.
- * Distinguishes between operational errors (expected) and programming errors (bugs).
- */
+ * Distinguishes between operational errors (expected) and programming errors (bugs) ***/
 
-/**
- * Base application error class.
- * All custom errors extend from this.
- */
+/*** Base application error class.
+ * All custom errors extend from this ***/
 export abstract class AppError extends Error {
   /** Error code for programmatic handling */
   abstract readonly code: string;
@@ -35,7 +31,7 @@ export abstract class AppError extends Error {
     if (options?.details) {
       this.details = options.details;
     }
-    // V8-specific: guard against environments without captureStackTrace
+    /* V8-specific: guard against environments without captureStackTrace */
     if (
       typeof (Error as unknown as { captureStackTrace?: unknown }).captureStackTrace === 'function'
     ) {
@@ -50,10 +46,8 @@ export abstract class AppError extends Error {
     }
   }
 
-  /**
-   * Convert to JSON-safe object for API responses.
-   * Excludes sensitive information like stack traces.
-   */
+  /*** Convert to JSON-safe object for API responses.
+   * Excludes sensitive information like stack traces ***/
   toJSON(): Record<string, unknown> {
     return {
       code: this.code,
@@ -64,13 +58,11 @@ export abstract class AppError extends Error {
     };
   }
 }
+/* =================== */
+/* Operational Errors (Expected, Recoverable) */
+/* =================== */
 
-// ===================
-// Operational Errors (Expected, Recoverable)
-// ===================
-
-/**
- * 400 Bad Request - Invalid input data
+/*** 400 Bad Request - Invalid input data
  */
 export class ValidationError extends AppError {
   readonly code = 'VALIDATION_ERROR';
@@ -171,8 +163,7 @@ export class RateLimitError extends AppError {
   }
 
   /**
-   * Override toJSON to include retryAfter in API responses.
-   */
+   * Override toJSON to include retryAfter in API responses ***/
   override toJSON(): Record<string, unknown> {
     const json = super.toJSON();
     if (this.retryAfter !== undefined) {
@@ -181,13 +172,11 @@ export class RateLimitError extends AppError {
     return json;
   }
 }
+/* =================== */
+/* Programming Errors (Unexpected, Non-Recoverable) */
+/* =================== */
 
-// ===================
-// Programming Errors (Unexpected, Non-Recoverable)
-// ===================
-
-/**
- * 500 Internal Server Error - Unexpected programming error
+/*** 500 Internal Server Error - Unexpected programming error
  */
 export class InternalError extends AppError {
   readonly code = 'INTERNAL_ERROR';
@@ -211,29 +200,23 @@ export class ServiceUnavailableError extends AppError {
     super(`${service} is temporarily unavailable. Please try again later.`, options);
   }
 }
-
-// ===================
-// Type Guards
-// ===================
+/* =================== */
+/* Type Guards */
+/* =================== */
 
 /**
- * Check if an error is an AppError instance.
- */
+ * Check if an error is an AppError instance ***/
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
-/**
- * Check if an error is operational (expected/recoverable).
- */
+/*** Check if an error is operational (expected/recoverable) ***/
 export function isOperationalError(error: unknown): boolean {
   return isAppError(error) && error.isOperational;
 }
 
-/**
- * Wrap unknown errors into AppError.
- * Use this to ensure consistent error handling.
- */
+/*** Wrap unknown errors into AppError.
+ * Use this to ensure consistent error handling ***/
 export function toAppError(error: unknown): AppError {
   if (isAppError(error)) {
     return error;

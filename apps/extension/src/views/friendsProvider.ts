@@ -1,7 +1,7 @@
 /**
  * Friends Tree View Provider
  *
- * Displays the friends list in the sidebar with real-time status updates.
+ * Displays the friends list in the sidebar with real-time status updates
  */
 
 import * as vscode from 'vscode';
@@ -9,9 +9,7 @@ import * as vscode from 'vscode';
 import type { Logger } from '../utils/logger';
 import type { ActivityPayload, UserDTO, UserStatus, UserStatusType } from '@devradar/shared';
 
-/**
- * Friend item with status information.
- */
+/*** Friend item with status information*/
 export interface FriendInfo {
   id: string;
   username: string;
@@ -29,9 +27,7 @@ export interface FriendInfo {
   lastUpdated: number;
 }
 
-/**
- * Tree item representing a friend.
- */
+/*** Tree item representing a friend. ***/
 class FriendTreeItem extends vscode.TreeItem {
   constructor(public readonly friend: FriendInfo) {
     super(friend.displayName ?? friend.username, vscode.TreeItemCollapsibleState.None);
@@ -41,8 +37,7 @@ class FriendTreeItem extends vscode.TreeItem {
     this.tooltip = this.buildTooltip();
     this.description = this.buildDescription();
     this.iconPath = this.getStatusIcon();
-
-    // Custom command for clicking
+    /* Custom command for clicking */
     this.command = {
       command: 'devradar.viewProfile',
       title: 'View Profile',
@@ -50,9 +45,7 @@ class FriendTreeItem extends vscode.TreeItem {
     };
   }
 
-  /**
-   * Builds the tooltip text.
-   */
+  /*** Builds the tooltip text ***/
   private buildTooltip(): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.isTrusted = true;
@@ -81,9 +74,7 @@ class FriendTreeItem extends vscode.TreeItem {
     return md;
   }
 
-  /**
-   * Builds the description (shown next to the label).
-   */
+  /*** Builds the description (shown next to the label) ***/
   private buildDescription(): string {
     if (this.friend.status === 'offline') {
       return 'Offline';
@@ -107,9 +98,7 @@ class FriendTreeItem extends vscode.TreeItem {
     return parts.join(' ');
   }
 
-  /**
-   * Gets the status icon.
-   */
+  /*** Gets the status icon ***/
   private getStatusIcon(): vscode.ThemeIcon {
     switch (this.friend.status) {
       case 'online':
@@ -127,9 +116,7 @@ class FriendTreeItem extends vscode.TreeItem {
     }
   }
 
-  /**
-   * Gets the status emoji.
-   */
+  /*** Gets the status emoji ***/
   private getStatusEmoji(): string {
     switch (this.friend.status) {
       case 'online':
@@ -144,9 +131,7 @@ class FriendTreeItem extends vscode.TreeItem {
     }
   }
 
-  /**
-   * Gets the status text.
-   */
+  /*** Gets the status text ***/
   private getStatusText(): string {
     switch (this.friend.status) {
       case 'online':
@@ -161,9 +146,7 @@ class FriendTreeItem extends vscode.TreeItem {
     }
   }
 
-  /**
-   * Formats duration in seconds to human-readable string.
-   */
+  /*** Formats duration in seconds to human-readable string ***/
   private formatDuration(seconds: number): string {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -175,9 +158,7 @@ class FriendTreeItem extends vscode.TreeItem {
   }
 }
 
-/**
- * Group header for organizing friends by status.
- */
+/*** Group header for organizing friends by status ***/
 class GroupTreeItem extends vscode.TreeItem {
   constructor(
     public readonly statusGroup: UserStatusType | 'all',
@@ -207,9 +188,7 @@ class GroupTreeItem extends vscode.TreeItem {
   }
 }
 
-/**
- * Friends tree data provider.
- */
+/*** Friends tree data provider ***/
 export class FriendsProvider
   implements vscode.TreeDataProvider<FriendTreeItem | GroupTreeItem>, vscode.Disposable
 {
@@ -225,19 +204,15 @@ export class FriendsProvider
     this.disposables.push(this.onDidChangeTreeDataEmitter);
   }
 
-  /**
-   * Returns a tree item for the given element.
-   */
+  /*** Returns a tree item for the given element ***/
   getTreeItem(element: FriendTreeItem | GroupTreeItem): vscode.TreeItem {
     return element;
   }
 
-  /**
-   * Returns children for the given element or root elements if no element is provided.
-   */
+  /*** Returns children for the given element or root elements if no element is provided ***/
   getChildren(element?: FriendTreeItem | GroupTreeItem): (FriendTreeItem | GroupTreeItem)[] {
     if (element instanceof GroupTreeItem) {
-      // Return friends filtered by the group's status
+      /* Return friends filtered by the group's status */
       const statusGroup = element.statusGroup;
       const friendsList = Array.from(this.friends.values());
 
@@ -249,8 +224,7 @@ export class FriendsProvider
         .filter((friend) => friend.status === statusGroup)
         .map((friend) => new FriendTreeItem(friend));
     }
-
-    // Root level: return groups with counts
+    /* Root level: return groups with counts */
     const friendsList = Array.from(this.friends.values());
     const groups: GroupTreeItem[] = [];
 
@@ -267,16 +241,12 @@ export class FriendsProvider
     return groups;
   }
 
-  /**
-   * Refreshes the friends tree view.
-   */
+  /*** Refreshes the friends tree view ***/
   refresh(): void {
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /**
-   * Builds activity info from ActivityPayload.
-   */
+  /*** Builds activity info from ActivityPayload ***/
   private buildActivityInfo(activity: ActivityPayload): FriendInfo['activity'] {
     const result: FriendInfo['activity'] = {
       sessionDuration: activity.sessionDuration,
@@ -293,15 +263,12 @@ export class FriendsProvider
     return result;
   }
 
-  /**
-   * Handles friend status update from WebSocket.
-   */
+  /*** Handles friend status update from WebSocket ***/
   handleFriendStatus(payload: unknown): void {
     if (typeof payload !== 'object' || payload === null) {
       return;
     }
-
-    // Validate payload shape
+    /* Validate payload shape */
     const p = payload as Record<string, unknown>;
     if (
       typeof p.userId !== 'string' ||
@@ -316,7 +283,7 @@ export class FriendsProvider
     const existingFriend = this.friends.get(status.userId);
 
     if (existingFriend) {
-      // Update existing friend
+      /* Update existing friend */
       const newActivity = status.activity ? this.buildActivityInfo(status.activity) : undefined;
       const updated: FriendInfo = {
         ...existingFriend,
@@ -333,18 +300,14 @@ export class FriendsProvider
     }
   }
 
-  /**
-   * Gets list of currently online friends.
-   */
+  /*** Gets list of currently online friends ***/
   getOnlineFriends(): FriendInfo[] {
     return Array.from(this.friends.values()).filter(
       (f) => f.status === 'online' || f.status === 'idle'
     );
   }
 
-  /**
-   * Adds a friend to the list (called when receiving initial state).
-   */
+  /*** Adds a friend to the list (called when receiving initial state) ***/
   addFriend(user: UserDTO, status: UserStatus): void {
     const friend: FriendInfo = {
       id: user.id,
@@ -360,9 +323,7 @@ export class FriendsProvider
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /**
-   * Clears all friends (called on logout).
-   */
+  /*** Clears all friends (called on logout) ***/
   clear(): void {
     this.friends.clear();
     this.onDidChangeTreeDataEmitter.fire(undefined);

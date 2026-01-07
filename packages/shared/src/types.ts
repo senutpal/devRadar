@@ -1,21 +1,13 @@
-/**
- * User status indicating online presence.
- */
+/*** User status indicating online presence ***/
 export type UserStatusType = 'online' | 'idle' | 'dnd' | 'offline';
 
-/**
- * User subscription tier.
- */
+/*** User subscription tier ***/
 export type TierType = 'FREE' | 'PRO' | 'TEAM';
 
-/**
- * Team member role.
- */
+/*** Team member role ***/
 export type RoleType = 'OWNER' | 'ADMIN' | 'MEMBER';
 
-/**
- * WebSocket message types.
- */
+/*** WebSocket message types ***/
 export type MessageType =
   | 'AUTH'
   | 'AUTH_SUCCESS'
@@ -28,13 +20,10 @@ export type MessageType =
   | 'HEARTBEAT'
   | 'PONG';
 
-/**
- * Unix timestamp in milliseconds (value returned by Date.now()).
- */
+/*** Unix timestamp in milliseconds (value returned by Date.now()) ***/
 export type EpochMillis = number;
 
-/**
- * Intensity value constrained to 0-100 range.
+/*** Intensity value constrained to 0-100 range.
  * Represents coding intensity based on keystroke velocity.
  * @min 0
  * @max 100
@@ -42,8 +31,7 @@ export type EpochMillis = number;
 export type Intensity = number & { readonly __brand: 'Intensity' };
 
 /**
- * Activity payload representing coding activity.
- */
+ * Activity payload representing coding activity ***/
 export interface ActivityPayload {
   /** Current file name (can be masked for privacy) */
   fileName?: string;
@@ -55,8 +43,7 @@ export interface ActivityPayload {
   workspace?: string;
   /** Session duration in seconds */
   sessionDuration: number;
-  /**
-   * Coding intensity (keystroke velocity).
+  /*** Coding intensity (keystroke velocity).
    * @min 0
    * @max 100
    */
@@ -64,8 +51,7 @@ export interface ActivityPayload {
 }
 
 /**
- * User presence status.
- */
+ * User presence status ***/
 export interface UserStatus {
   userId: string;
   status: UserStatusType;
@@ -74,9 +60,7 @@ export interface UserStatus {
   updatedAt: EpochMillis;
 }
 
-/**
- * WebSocket message envelope.
- */
+/*** WebSocket message envelope ***/
 export interface WebSocketMessage<T = unknown> {
   type: MessageType;
   payload: T;
@@ -86,9 +70,7 @@ export interface WebSocketMessage<T = unknown> {
   correlationId?: string;
 }
 
-/**
- * User profile data transfer object.
- */
+/*** User profile data transfer object ***/
 export interface UserDTO {
   id: string;
   githubId: string;
@@ -101,18 +83,14 @@ export interface UserDTO {
   createdAt: string;
 }
 
-/**
- * Poke request payload.
- */
+/*** Poke request payload ***/
 export interface PokePayload {
   fromUserId: string;
   toUserId: string;
   message?: string;
 }
 
-/**
- * Conflict alert payload for merge conflict radar.
- */
+/*** Conflict alert payload for merge conflict radar ***/
 export interface ConflictAlertPayload {
   fileHash: string;
   /** Array of user IDs currently editing this file */
@@ -120,18 +98,14 @@ export interface ConflictAlertPayload {
   teamId: string;
 }
 
-/**
- * API error response.
- */
+/*** API error response ***/
 export interface ApiError {
   code: string;
   message: string;
   details?: Record<string, unknown>;
 }
 
-/**
- * Paginated response wrapper.
- */
+/*** Paginated response wrapper ***/
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {

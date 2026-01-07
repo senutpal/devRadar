@@ -1,9 +1,7 @@
-/**
- * GitHub OAuth Service
+/*** GitHub OAuth Service
  *
  * Handles GitHub OAuth 2.0 flow for authentication.
- * Creates or updates user records on successful authentication.
- */
+ * Creates or updates user records on successful authentication ***/
 
 import type { User } from '@/generated/prisma/client';
 
@@ -150,13 +148,11 @@ async function fetchGitHubUser(accessToken: string): Promise<GitHubUser> {
  */
 export async function authenticateWithGitHub(code: string): Promise<User> {
   try {
-    // Exchange code for access token
+    /* Exchange code for access token */
     const accessToken = await exchangeCodeForToken(code);
-
-    // Fetch user profile
+    /* Fetch user profile */
     const githubUser = await fetchGitHubUser(accessToken);
-
-    // Upsert user in database
+    /* Upsert user in database */
     const db = getDb();
     const user = await db.user.upsert({
       where: { githubId: String(githubUser.id) },

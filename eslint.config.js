@@ -4,7 +4,7 @@ import baseConfig from '@devradar/eslint-config/base';
 export default [
   ...baseConfig,
   {
-    // Root-specific ignores (packages have their own ESLint configs)
+    /* Root-specific ignores (packages have their own ESLint configs) */
     ignores: ['packages/**', 'apps/**'],
   },
 ];

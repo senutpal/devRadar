@@ -1,5 +1,4 @@
-/**
- * User Routes
+/*** User Routes
  *
  * User profile management:
  * - GET /users/me - Get current user
@@ -18,28 +17,21 @@ import { getDb } from '@/services/db';
 import { getPresence } from '@/services/redis';
 
 /**
- * User ID params schema.
- */
+ * User ID params schema ***/
 const UserIdParamsSchema = z.object({
   id: z.string().min(1, 'User ID is required'),
 });
 
-/**
- * Search query schema.
- */
+/*** Search query schema ***/
 const SearchQuerySchema = z.object({
   q: z.string().min(2, 'Search query must be at least 2 characters'),
 });
 
-/**
- * Valid tier values.
- */
+/*** Valid tier values ***/
 const VALID_TIERS = ['FREE', 'PRO', 'TEAM'] as const;
 type ValidTier = (typeof VALID_TIERS)[number];
 
-/**
- * Transform Prisma user to DTO.
- */
+/*** Transform Prisma user to DTO ***/
 function toUserDTO(user: {
   id: string;
   githubId: string;
@@ -50,7 +42,7 @@ function toUserDTO(user: {
   privacyMode: boolean;
   createdAt: Date;
 }): UserDTO {
-  // Runtime validation of tier value
+  /* Runtime validation of tier value */
   const tier = VALID_TIERS.includes(user.tier as ValidTier)
     ? (user.tier as UserDTO['tier'])
     : 'FREE'; // Safe default for invalid DB values
@@ -67,16 +59,12 @@ function toUserDTO(user: {
   };
 }
 
-/**
- * Register user routes.
- */
+/*** Register user routes ***/
 export function userRoutes(app: FastifyInstance): void {
   const db = getDb();
 
-  /**
-   * GET /users/me
-   * Get current authenticated user's profile.
-   */
+  /*** GET /users/me
+   * Get current authenticated user's profile ***/
   app.get(
     '/me',
     { onRequest: [app.authenticate] },
@@ -90,8 +78,7 @@ export function userRoutes(app: FastifyInstance): void {
       if (!user) {
         throw new NotFoundError('User', userId);
       }
-
-      // Get current presence
+      /* Get current presence */
       const presence = await getPresence(userId);
 
       return reply.send({
@@ -104,14 +91,10 @@ export function userRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * GET /users/:id
-   * Get user by ID (public profile).
-   */
-  /**
-   * GET /users/search
-   * Search users by username.
-   */
+  /*** GET /users/:id
+   * Get user by ID (public profile) ***/
+  /*** GET /users/search
+   * Search users by username ***/
   app.get(
     '/search',
     { onRequest: [app.authenticate] },
@@ -181,8 +164,7 @@ export function userRoutes(app: FastifyInstance): void {
       if (!user) {
         throw new NotFoundError('User', id);
       }
-
-      // Respect privacy mode
+      /* Respect privacy mode */
       if (user.privacyMode) {
         return reply.send({
           data: {
@@ -195,8 +177,7 @@ export function userRoutes(app: FastifyInstance): void {
           },
         });
       }
-
-      // Get presence if not in privacy mode
+      /* Get presence if not in privacy mode */
       const presence = await getPresence(id);
 
       return reply.send({
@@ -211,10 +192,8 @@ export function userRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * PATCH /users/me
-   * Update current user's profile.
-   */
+  /*** PATCH /users/me
+   * Update current user's profile ***/
   app.patch(
     '/me',
     { onRequest: [app.authenticate] },
@@ -230,8 +209,7 @@ export function userRoutes(app: FastifyInstance): void {
       }
 
       const updateData = result.data;
-
-      // Build update object explicitly to handle exactOptionalPropertyTypes
+      /* Build update object explicitly to handle exactOptionalPropertyTypes */
       const prismaUpdateData: { displayName?: string | null; privacyMode?: boolean } = {};
       if (updateData.displayName !== undefined) {
         prismaUpdateData.displayName = updateData.displayName;
@@ -251,8 +229,6 @@ export function userRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * GET /users/search
-   * Search users by username.
-   */
+  /*** GET /users/search
+   * Search users by username ***/
 }

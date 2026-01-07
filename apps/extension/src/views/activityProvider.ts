@@ -1,17 +1,13 @@
-/**
- * Activity Tree View Provider
+/*** Activity Tree View Provider
  *
- * Displays recent activity and achievements in the sidebar.
- */
+ * Displays recent activity and achievements in the sidebar ***/
 
 import * as vscode from 'vscode';
 
 import type { WebSocketClient } from '../services/wsClient';
 import type { Logger } from '../utils/logger';
 
-/**
- * Activity event type.
- */
+/*** Activity event type ***/
 export interface ActivityEvent {
   id: string;
   type: 'friend_online' | 'friend_offline' | 'poke' | 'achievement' | 'conflict';
@@ -22,9 +18,7 @@ export interface ActivityEvent {
   username?: string;
 }
 
-/**
- * Tree item representing an activity event.
- */
+/*** Tree item representing an activity event ***/
 class ActivityTreeItem extends vscode.TreeItem {
   constructor(public readonly activity: ActivityEvent) {
     super(activity.title, vscode.TreeItemCollapsibleState.None);
@@ -36,9 +30,7 @@ class ActivityTreeItem extends vscode.TreeItem {
     this.contextValue = `activity-${activity.type}`;
   }
 
-  /**
-   * Gets the appropriate icon for the activity type.
-   */
+  /*** Gets the appropriate icon for the activity type ***/
   private getIcon(): vscode.ThemeIcon {
     switch (this.activity.type) {
       case 'friend_online':
@@ -56,9 +48,7 @@ class ActivityTreeItem extends vscode.TreeItem {
     }
   }
 
-  /**
-   * Formats timestamp to relative time.
-   */
+  /*** Formats timestamp to relative time ***/
   private formatTime(timestamp: number): string {
     const now = Date.now();
     const diff = now - timestamp;
@@ -76,15 +66,13 @@ class ActivityTreeItem extends vscode.TreeItem {
       return `${String(hours)}h ago`;
     }
 
-    // Format as date
+    /*** Format as date ***/
     const date = new Date(timestamp);
     return date.toLocaleDateString();
   }
 }
 
-/**
- * Activity tree data provider.
- */
+/*** Activity tree data provider ***/
 export class ActivityProvider
   implements vscode.TreeDataProvider<ActivityTreeItem>, vscode.Disposable
 {
@@ -98,11 +86,11 @@ export class ActivityProvider
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
   constructor(wsClient: WebSocketClient, _logger: Logger) {
-    // _logger reserved for future use
+    /* _logger reserved for future use */
     void _logger;
     this.disposables.push(this.onDidChangeTreeDataEmitter);
 
-    // Listen for WebSocket messages
+    /* Listen for WebSocket messages */
     this.disposables.push(
       wsClient.onMessage((message) => {
         this.handleMessage(message);
@@ -110,18 +98,14 @@ export class ActivityProvider
     );
   }
 
-  /**
-   * Gets tree item for element.
-   */
+  /*** Gets tree item for element ***/
   getTreeItem(element: ActivityTreeItem): vscode.TreeItem {
     return element;
   }
 
-  /**
-   * Gets children for element.
-   */
+  /*** Gets children for element ***/
   getChildren(element?: ActivityTreeItem): ActivityTreeItem[] {
-    // Only root level has children
+    /* Only root level has children */
     if (element) {
       return [];
     }
@@ -131,9 +115,7 @@ export class ActivityProvider
       .map((activity) => new ActivityTreeItem(activity));
   }
 
-  /**
-   * Handles incoming WebSocket messages.
-   */
+  /*** Handles incoming WebSocket messages ***/
   private handleMessage(message: { type: string; payload: unknown }): void {
     let activity: ActivityEvent | null = null;
 
@@ -157,15 +139,13 @@ export class ActivityProvider
     }
   }
 
-  /**
-   * Creates activity for friend status change.
-   */
+  /*** Creates activity for friend status change ***/
   private createFriendStatusActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
     }
 
-    // Safer casing and checking
+    /* Safer casing and checking */
     const p = payload as Record<string, unknown>;
     if (typeof p.userId !== 'string' || typeof p.status !== 'string') {
       return null;
@@ -175,7 +155,7 @@ export class ActivityProvider
     const status = p.status;
     const username = typeof p.username === 'string' ? p.username : userId;
 
-    // Only show online/offline transitions
+    /* Only show online/offline transitions */
     if (status !== 'online' && status !== 'offline') {
       return null;
     }
@@ -197,9 +177,7 @@ export class ActivityProvider
     return event;
   }
 
-  /**
-   * Creates activity for poke.
-   */
+  /*** Creates activity for poke ***/
   private createPokeActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -232,9 +210,7 @@ export class ActivityProvider
     return event;
   }
 
-  /**
-   * Creates activity for achievement.
-   */
+  /*** Creates activity for achievement ***/
   private createAchievementActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -251,9 +227,7 @@ export class ActivityProvider
     };
   }
 
-  /**
-   * Creates activity for conflict alert.
-   */
+  /*** Creates activity for conflict alert ***/
   private createConflictActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -270,13 +244,11 @@ export class ActivityProvider
     };
   }
 
-  /**
-   * Adds an activity to the list.
-   */
+  /*** Adds an activity to the list ***/
   private addActivity(activity: ActivityEvent): void {
     this.activities.unshift(activity);
 
-    // Keep only the most recent activities
+    /* Keep only the most recent activities */
     if (this.activities.length > this.maxActivities) {
       this.activities = this.activities.slice(0, this.maxActivities);
     }
@@ -284,17 +256,13 @@ export class ActivityProvider
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /**
-   * Clears all activities.
-   */
+  /*** Clears all activities ***/
   clear(): void {
     this.activities = [];
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /**
-   * Refreshes the tree view.
-   */
+  /*** Refreshes the tree view ***/
   refresh(): void {
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }

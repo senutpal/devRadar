@@ -1,5 +1,4 @@
-/**
- * Authentication Routes
+/*** Authentication Routes
  *
  * Handles GitHub OAuth flow:
  * - GET /auth/github - Redirect to GitHub login
@@ -16,8 +15,7 @@ import { logger } from '@/lib/logger';
 import { getGitHubAuthUrl, authenticateWithGitHub } from '@/services/github';
 
 /**
- * Callback query params schema.
- */
+ * Callback query params schema ***/
 const CallbackQuerySchema = z.object({
   code: z.string().min(1, 'Authorization code is required'),
   state: z.string().optional(),
@@ -25,9 +23,7 @@ const CallbackQuerySchema = z.object({
   error_description: z.string().optional(),
 });
 
-/**
- * GitHub auth query params schema.
- */
+/*** GitHub auth query params schema ***/
 const GitHubAuthQuerySchema = z.object({
   redirect_uri: z
     .string()
@@ -36,38 +32,31 @@ const GitHubAuthQuerySchema = z.object({
         uri.startsWith('vscode://') ||
         uri.startsWith('vscode-insiders://') ||
         uri.startsWith('https://') ||
-        // Allow http:// only in development for local testing
+        /* Allow http:// only in development for local testing */
         (!isProduction && uri.startsWith('http://')),
       'Invalid redirect URI scheme'
     )
     .optional(),
 });
 
-/**
- * Register authentication routes.
- */
+/*** Register authentication routes ***/
 export function authRoutes(app: FastifyInstance): void {
-  /**
-   * GET /auth/github
-   * Redirect to GitHub OAuth authorization page.
-   */
+  /*** GET /auth/github
+   * Redirect to GitHub OAuth authorization page ***/
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
-    // Parse query params
+    /* Parse query params */
     const queryResult = GitHubAuthQuerySchema.safeParse(request.query);
     const redirectUri = queryResult.success ? queryResult.data.redirect_uri : undefined;
-
-    // Generate state for CSRF protection
+    /* Generate state for CSRF protection */
     const state = crypto.randomUUID();
-
-    // Store state in secure cookie for validation
+    /* Store state in secure cookie for validation */
     reply.setCookie('oauth_state', state, {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'lax',
       maxAge: 600, // 10 minutes
     });
-
-    // Store redirect_uri in cookie for callback
+    /* Store redirect_uri in cookie for callback */
     if (redirectUri) {
       reply.setCookie('oauth_redirect_uri', redirectUri, {
         httpOnly: true,
@@ -84,16 +73,14 @@ export function authRoutes(app: FastifyInstance): void {
     return reply.redirect(authUrl);
   });
 
-  /**
-   * GET /auth/callback
+  /*** GET /auth/callback
    * Handle GitHub OAuth callback.
-   * Returns JWT token on success.
-   */
+   * Returns JWT token on success ***/
   app.get(
     '/callback',
     {
       config: {
-        // Rate limiting: 10 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit)
+        /* Rate limiting: 10 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit) */
         rateLimit: {
           max: 10,
           timeWindow: '1 minute',
@@ -110,8 +97,7 @@ export function authRoutes(app: FastifyInstance): void {
       }
 
       const { code, state, error, error_description } = result.data;
-
-      // Validate CSRF state
+      /* Validate CSRF state */
       const storedState = request.cookies.oauth_state;
       if (!state || !storedState || state !== storedState) {
         logger.warn({ providedState: state }, 'OAuth state mismatch');
@@ -122,11 +108,9 @@ export function authRoutes(app: FastifyInstance): void {
           },
         });
       }
-
-      // Clear the state cookie
+      /* Clear the state cookie */
       reply.clearCookie('oauth_state');
-
-      // Handle OAuth errors from GitHub
+      /* Handle OAuth errors from GitHub */
       if (error) {
         logger.warn({ error, error_description }, 'GitHub OAuth error');
         return reply.status(400).send({
@@ -136,11 +120,9 @@ export function authRoutes(app: FastifyInstance): void {
           },
         });
       }
-
-      // Authenticate with GitHub
+      /* Authenticate with GitHub */
       const user = await authenticateWithGitHub(code);
-
-      // Generate JWT
+      /* Generate JWT */
       const token = app.jwt.sign(
         {
           userId: user.id,
@@ -151,8 +133,7 @@ export function authRoutes(app: FastifyInstance): void {
       );
 
       logger.info({ userId: user.id }, 'User authenticated successfully');
-
-      // Check for VS Code redirect URI
+      /* Check for VS Code redirect URI */
       const redirectUri = request.cookies.oauth_redirect_uri;
       reply.clearCookie('oauth_redirect_uri');
 
@@ -160,15 +141,14 @@ export function authRoutes(app: FastifyInstance): void {
         redirectUri &&
         (redirectUri.startsWith('vscode://') || redirectUri.startsWith('vscode-insiders://'))
       ) {
-        // Redirect to VS Code extension with token
+        /* Redirect to VS Code extension with token */
         const vsCodeUrl = new URL(redirectUri);
         vsCodeUrl.searchParams.set('token', token);
 
         logger.debug({ redirectUri: vsCodeUrl.toString() }, 'Redirecting to VS Code');
         return reply.redirect(vsCodeUrl.toString());
       }
-
-      // Fallback: Return token and user info as JSON
+      /* Fallback: Return token and user info as JSON */
       return reply.send({
         data: {
           token,
@@ -184,10 +164,8 @@ export function authRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * POST /auth/refresh
-   * Refresh JWT token (requires valid token).
-   */
+  /*** POST /auth/refresh
+   * Refresh JWT token (requires valid token) ***/
   app.post(
     '/refresh',
     { onRequest: [app.authenticate] },
@@ -209,26 +187,22 @@ export function authRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * POST /auth/logout
-   * Logout and blacklist the current token.
-   */
+  /*** POST /auth/logout
+   * Logout and blacklist the current token ***/
   app.post(
     '/logout',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
-        // Extract token from Authorization header
+        /* Extract token from Authorization header */
         const authHeader = request.headers.authorization;
         if (authHeader?.startsWith('Bearer ')) {
           const token = authHeader.slice(7);
-
-          // Decode token to get expiry (without verification since we already verified)
+          /* Decode token to get expiry (without verification since we already verified) */
           const decoded = app.jwt.decode(token);
           if (decoded && typeof decoded === 'object' && 'exp' in decoded) {
             const ttlSeconds = (decoded.exp as number) - Math.floor(Date.now() / 1000);
-
-            // Import dynamically to avoid circular dependency
+            /* Import dynamically to avoid circular dependency */
             const { blacklistToken } = await import('@/services/redis');
             await blacklistToken(token, ttlSeconds);
 
@@ -236,7 +210,7 @@ export function authRoutes(app: FastifyInstance): void {
           }
         }
       } catch (error) {
-        // Log but don't fail the logout
+        /* Log but don't fail the logout */
         logger.warn({ error }, 'Failed to blacklist token during logout');
       }
 

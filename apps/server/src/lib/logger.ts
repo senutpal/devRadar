@@ -1,5 +1,4 @@
-/**
- * Structured Logger
+/*** Structured Logger
  *
  * Pino-based logger with:
  * - JSON structured logging for production
@@ -14,8 +13,7 @@ import { env, isDevelopment } from '@/config';
 
 /**
  * Fields to redact from logs for security.
- * Never log passwords, tokens, or PII.
- */
+ * Never log passwords, tokens, or PII ***/
 const REDACT_PATHS = [
   'password',
   'accessToken',
@@ -34,9 +32,7 @@ const REDACT_PATHS = [
   'headers.cookie',
 ];
 
-/**
- * Create the Pino logger instance.
- */
+/*** Create the Pino logger instance ***/
 function createLogger(): Logger {
   const options: pino.LoggerOptions = {
     level: env.LOG_LEVEL,
@@ -53,8 +49,7 @@ function createLogger(): Logger {
       env: env.NODE_ENV,
     },
   };
-
-  // Pretty print in development for readability
+  /* Pretty print in development for readability */
   if (isDevelopment) {
     return pino({
       ...options,
@@ -72,14 +67,11 @@ function createLogger(): Logger {
   return pino(options);
 }
 
-/**
- * Application logger instance.
- * Use this for all logging throughout the application.
- */
+/*** Application logger instance.
+ * Use this for all logging throughout the application ***/
 export const logger = createLogger();
 
-/**
- * Create a child logger with additional context.
+/*** Create a child logger with additional context.
  * Useful for request-scoped logging with correlation IDs.
  *
  * @param bindings - Additional context to include in all logs
@@ -94,8 +86,7 @@ export function createChildLogger(bindings: Record<string, unknown>): Logger {
 }
 
 /**
- * Log levels for reference.
- */
+ * Log levels for reference ***/
 export const LogLevel = {
   FATAL: 'fatal',
   ERROR: 'error',

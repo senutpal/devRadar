@@ -1,5 +1,4 @@
-/**
- * Friends Routes
+/*** Friends Routes
  *
  * Follow/unfollow functionality:
  * - GET /friends - List friends (following)
@@ -19,15 +18,12 @@ import { getDb } from '@/services/db';
 import { getPresences } from '@/services/redis';
 
 /**
- * User ID params schema.
- */
+ * User ID params schema ***/
 const UserIdParamsSchema = z.object({
   id: z.string().min(1, 'User ID is required'),
 });
 
-/**
- * Follow with user details type.
- */
+/*** Follow with user details type ***/
 interface FollowWithUser {
   following: {
     id: string;
@@ -40,9 +36,7 @@ interface FollowWithUser {
   createdAt: Date;
 }
 
-/**
- * Follow with follower details type.
- */
+/*** Follow with follower details type ***/
 interface FollowWithFollower {
   follower: {
     id: string;
@@ -54,16 +48,12 @@ interface FollowWithFollower {
   createdAt: Date;
 }
 
-/**
- * Register friend routes.
- */
+/*** Register friend routes ***/
 export function friendRoutes(app: FastifyInstance): void {
   const db = getDb();
 
-  /**
-   * GET /friends
-   * List users the current user is following (friends).
-   */
+  /*** GET /friends
+   * List users the current user is following (friends) ***/
   app.get(
     '/',
     { onRequest: [app.authenticate] },
@@ -76,8 +66,7 @@ export function friendRoutes(app: FastifyInstance): void {
         : { page: 1, limit: 20 };
 
       const skip = (page - 1) * limit;
-
-      // Get following with user details
+      /* Get following with user details */
       const [follows, total] = await Promise.all([
         db.follow.findMany({
           where: { followerId: userId },
@@ -99,12 +88,10 @@ export function friendRoutes(app: FastifyInstance): void {
         }) as Promise<FollowWithUser[]>,
         db.follow.count({ where: { followerId: userId } }),
       ]);
-
-      // Get presences for friends
+      /* Get presences for friends */
       const friendIds = follows.map((f: FollowWithUser) => f.following.id);
       const presences = await getPresences(friendIds);
-
-      // Combine user data with presence
+      /* Combine user data with presence */
       const friends = follows.map((f: FollowWithUser) => {
         const user = f.following;
         const presence = presences.get(user.id);
@@ -134,10 +121,8 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * GET /friends/followers
-   * List users following the current user.
-   */
+  /*** GET /friends/followers
+   * List users following the current user ***/
   app.get(
     '/followers',
     { onRequest: [app.authenticate] },
@@ -189,10 +174,8 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * POST /friends/:id
-   * Follow a user.
-   */
+  /*** POST /friends/:id
+   * Follow a user ***/
   app.post(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -205,13 +188,11 @@ export function friendRoutes(app: FastifyInstance): void {
       }
 
       const { id: targetUserId } = paramsResult.data;
-
-      // Prevent self-follow
+      /* Prevent self-follow */
       if (userId === targetUserId) {
         throw new ConflictError('You cannot follow yourself');
       }
-
-      // Check if target user exists
+      /* Check if target user exists */
       const targetUser = await db.user.findUnique({
         where: { id: targetUserId },
         select: { id: true, username: true },
@@ -220,8 +201,7 @@ export function friendRoutes(app: FastifyInstance): void {
       if (!targetUser) {
         throw new NotFoundError('User', targetUserId);
       }
-
-      // Check if already following
+      /* Check if already following */
       const existingFollow = await db.follow.findUnique({
         where: {
           followerId_followingId: {
@@ -234,8 +214,7 @@ export function friendRoutes(app: FastifyInstance): void {
       if (existingFollow) {
         throw new ConflictError(`You are already following ${targetUser.username}`);
       }
-
-      // Create follow
+      /* Create follow */
       const follow = await db.follow.create({
         data: {
           followerId: userId,
@@ -256,10 +235,8 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * DELETE /friends/:id
-   * Unfollow a user.
-   */
+  /*** DELETE /friends/:id
+   * Unfollow a user ***/
   app.delete(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -272,8 +249,7 @@ export function friendRoutes(app: FastifyInstance): void {
       }
 
       const { id: targetUserId } = paramsResult.data;
-
-      // Find and delete follow
+      /* Find and delete follow */
       const follow = await db.follow.findUnique({
         where: {
           followerId_followingId: {
@@ -302,10 +278,8 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /**
-   * GET /friends/:id/mutual
-   * Get mutual friends with a user.
-   */
+  /*** GET /friends/:id/mutual
+   * Get mutual friends with a user ***/
   app.get(
     '/:id/mutual',
     { onRequest: [app.authenticate] },
@@ -318,8 +292,7 @@ export function friendRoutes(app: FastifyInstance): void {
       }
 
       const { id: targetUserId } = paramsResult.data;
-
-      // Single efficient query: find users followed by BOTH userId AND targetUserId
+      /* Single efficient query: find users followed by BOTH userId AND targetUserId */
       const mutualFriends = await db.user.findMany({
         where: {
           AND: [

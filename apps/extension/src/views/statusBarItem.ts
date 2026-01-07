@@ -1,8 +1,6 @@
-/**
- * Status Bar Manager
+/*** Status Bar Manager
  *
- * Manages the DevRadar status bar item showing connection state and user status.
- */
+ * Manages the DevRadar status bar item showing connection state and user status ***/
 
 import * as vscode from 'vscode';
 
@@ -10,9 +8,7 @@ import type { AuthService } from '../services/authService';
 import type { WebSocketClient, ConnectionState } from '../services/wsClient';
 import type { Logger } from '../utils/logger';
 
-/**
- * Status bar item manager.
- */
+/*** Status bar item manager ***/
 export class StatusBarManager implements vscode.Disposable {
   private readonly statusBarItem: vscode.StatusBarItem;
   private connectionState: ConnectionState = 'disconnected';
@@ -23,10 +19,10 @@ export class StatusBarManager implements vscode.Disposable {
     private readonly authService: AuthService,
     _logger: Logger
   ) {
-    // Reserved for future use
+    /* Reserved for future use */
     void _wsClient;
     void _logger;
-    // Create status bar item with high priority (shown on the right, near the right edge)
+    /* Create status bar item with high priority (shown on the right, near the right edge) */
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 
     this.statusBarItem.command = 'devradar.setStatus';
@@ -34,25 +30,19 @@ export class StatusBarManager implements vscode.Disposable {
     this.statusBarItem.show();
   }
 
-  /**
-   * Sets the connection state and updates display.
-   */
+  /*** Sets the connection state and updates display ***/
   setConnectionState(state: ConnectionState): void {
     this.connectionState = state;
     void this.update();
   }
 
-  /**
-   * Updates the status bar item.
-   */
+  /*** Updates the status bar item ***/
   async update(): Promise<void> {
     this.isAuthenticated = await this.authService.isAuthenticated();
     this.render();
   }
 
-  /**
-   * Renders the status bar item based on current state.
-   */
+  /*** Renders the status bar item based on current state ***/
   private render(): void {
     if (!this.isAuthenticated) {
       this.statusBarItem.text = '$(broadcast) DevRadar';
@@ -61,8 +51,7 @@ export class StatusBarManager implements vscode.Disposable {
       this.statusBarItem.backgroundColor = undefined;
       return;
     }
-
-    // Build status based on connection state
+    /* Build status based on connection state */
     const user = this.authService.getUser();
     const username = user?.displayName ?? user?.username ?? 'User';
 
@@ -96,9 +85,7 @@ export class StatusBarManager implements vscode.Disposable {
     }
   }
 
-  /**
-   * Builds the tooltip for connected state.
-   */
+  /*** Builds the tooltip for connected state ***/
   private buildConnectedTooltip(username: string): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.isTrusted = true;
@@ -115,16 +102,12 @@ export class StatusBarManager implements vscode.Disposable {
     return md;
   }
 
-  /**
-   * Shows the status bar item.
-   */
+  /*** Shows the status bar item ***/
   show(): void {
     this.statusBarItem.show();
   }
 
-  /**
-   * Hides the status bar item.
-   */
+  /*** Hides the status bar item ***/
   hide(): void {
     this.statusBarItem.hide();
   }

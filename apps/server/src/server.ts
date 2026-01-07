@@ -1,5 +1,4 @@
-/**
- * DevRadar Server
+/*** DevRadar Server
  *
  * Main entry point for the Fastify HTTP/WebSocket server.
  *
@@ -30,20 +29,17 @@ import { connectRedis, disconnectRedis, isRedisHealthy } from '@/services/redis'
 import { registerWebSocketHandler, getConnectionCount } from '@/ws/handler';
 
 /**
- * Create and configure the Fastify server.
- */
+ * Create and configure the Fastify server ***/
 async function buildServer() {
   const app = Fastify({
     logger: false, // We use our own Pino logger
     trustProxy: isProduction,
     disableRequestLogging: true, // We'll log requests ourselves
   });
-
-  // ===================
-  // Core Plugins
-  // ===================
-
-  // CORS - Configure based on environment
+  /* =================== */
+  /* Core Plugins */
+  /* =================== */
+  /* CORS - Configure based on environment */
   await app.register(fastifyCors, {
     origin: isDevelopment
       ? true // Allow all in development
@@ -51,30 +47,26 @@ async function buildServer() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
-
-  // Cookie support (for OAuth CSRF state)
+  /* Cookie support (for OAuth CSRF state) */
   await app.register(fastifyCookie);
-
-  // Security headers
+  /* Security headers */
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: isProduction,
     crossOriginEmbedderPolicy: false, // Required for some OAuth flows
   });
-
-  // JWT authentication
+  /* JWT authentication */
   await app.register(fastifyJwt, {
     secret: env.JWT_SECRET,
     sign: {
       expiresIn: env.JWT_EXPIRES_IN,
     },
   });
-
-  // Rate limiting
+  /* Rate limiting */
   await app.register(fastifyRateLimit, {
     max: isProduction ? 100 : 1000, // More lenient in development
     timeWindow: '1 minute',
     keyGenerator: (request) => {
-      // Use user ID if authenticated, otherwise IP
+      /* Use user ID if authenticated, otherwise IP */
       const user = request.user as { userId?: string } | undefined;
       return user?.userId ?? request.ip;
     },
@@ -85,24 +77,21 @@ async function buildServer() {
       },
     }),
   });
-
-  // WebSocket support
+  /* WebSocket support */
   await app.register(fastifyWebsocket, {
     options: {
       maxPayload: 1024 * 64, // 64KB max message size
       clientTracking: true,
     },
   });
-
-  // ===================
-  // Authentication Decorator
-  // ===================
+  /* =================== */
+  /* Authentication Decorator */
+  /* =================== */
 
   app.decorate('authenticate', async (request: FastifyRequest, _reply: FastifyReply) => {
     try {
       await request.jwtVerify();
-
-      // Check if token is blacklisted (for logout support)
+      /* Check if token is blacklisted (for logout support) */
       const authHeader = request.headers.authorization;
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.slice(7);
@@ -119,18 +108,16 @@ async function buildServer() {
       throw new AuthenticationError('Invalid or expired token');
     }
   });
-
-  // ===================
-  // Request Logging Hook
-  // ===================
+  /* =================== */
+  /* Request Logging Hook */
+  /* =================== */
 
   app.addHook('onRequest', (request, _reply, done) => {
-    // Generate trace ID for request correlation
+    /* Generate trace ID for request correlation */
     const existingTraceId = request.headers['x-trace-id'] as string | undefined;
     const traceId = existingTraceId ?? crypto.randomUUID();
     request.headers['x-trace-id'] = traceId;
-
-    // Attach child logger with trace ID
+    /* Attach child logger with trace ID */
     (request as FastifyRequest & { log: typeof logger }).log = logger.child({ traceId });
     done();
   });
@@ -139,8 +126,7 @@ async function buildServer() {
     const { method, url } = request;
     const { statusCode } = reply;
     const responseTime = reply.elapsedTime;
-
-    // Don't log health checks to reduce noise
+    /* Don't log health checks to reduce noise */
     if (url === '/health') {
       done();
       return;
@@ -158,18 +144,16 @@ async function buildServer() {
     );
     done();
   });
-
-  // ===================
-  // Global Error Handler
-  // ===================
+  /* =================== */
+  /* Global Error Handler */
+  /* =================== */
 
   app.setErrorHandler((error, request, reply) => {
     const appError = toAppError(error);
     const traceId = request.headers['x-trace-id'] as string;
 
     appError.traceId = traceId;
-
-    // Log based on error type
+    /* Log based on error type */
     if (appError.isOperational) {
       logger.warn(
         {
@@ -190,16 +174,14 @@ async function buildServer() {
         'Unexpected error'
       );
     }
-
-    // Send error response
+    /* Send error response */
     return reply.status(appError.statusCode).send({
       error: appError.toJSON(),
     });
   });
-
-  // ===================
-  // Health Check
-  // ===================
+  /* =================== */
+  /* Health Check */
+  /* =================== */
 
   app.get('/health', async (_request, reply) => {
     const [dbHealthy, redisHealthy] = await Promise.all([isDbHealthy(), isRedisHealthy()]);
@@ -223,12 +205,10 @@ async function buildServer() {
     const statusCode = status === 'healthy' ? 200 : 503;
     return reply.status(statusCode).send(health);
   });
-
-  // ===================
-  // API Routes
-  // ===================
-
-  // Prefix all API routes with /api/v1
+  /* =================== */
+  /* API Routes */
+  /* =================== */
+  /* Prefix all API routes with /api/v1 */
   app.register(
     (api, _opts, done) => {
       api.register(userRoutes, { prefix: '/users' });
@@ -237,34 +217,28 @@ async function buildServer() {
     },
     { prefix: '/api/v1' }
   );
-
-  // Auth routes at root for OAuth redirects (GITHUB_CALLBACK_URL should use /auth/callback)
+  /* Auth routes at root for OAuth redirects (GITHUB_CALLBACK_URL should use /auth/callback) */
   app.register(authRoutes, { prefix: '/auth' });
-
-  // ===================
-  // WebSocket Handler
-  // ===================
+  /* =================== */
+  /* WebSocket Handler */
+  /* =================== */
 
   registerWebSocketHandler(app);
 
   return app;
 }
 
-/**
- * Start the server with graceful shutdown.
- */
+/*** Start the server with graceful shutdown ***/
 async function start(): Promise<void> {
   let app: Awaited<ReturnType<typeof buildServer>> | null = null;
 
   try {
-    // Build server
+    /* Build server */
     app = await buildServer();
-
-    // Connect to services
+    /* Connect to services */
     logger.info('Connecting to services...');
     await Promise.all([connectDb(), connectRedis()]);
-
-    // Start listening
+    /* Start listening */
     await app.listen({
       host: env.HOST,
       port: env.PORT,
@@ -279,18 +253,16 @@ async function start(): Promise<void> {
       },
       `🚀 DevRadar server started at ${serverUrl}`
     );
-
-    // ===================
-    // Graceful Shutdown
-    // ===================
+    /* =================== */
+    /* Graceful Shutdown */
+    /* =================== */
 
     const shutdown = async (signal: string): Promise<void> => {
       logger.info({ signal }, 'Shutdown signal received');
-
-      // Set a timeout for graceful shutdown
+      /* Set a timeout for graceful shutdown */
       const shutdownTimeout = setTimeout(() => {
         logger.error('Graceful shutdown timed out, forcing exit');
-        // eslint-disable-next-line no-process-exit
+        /* eslint-disable-next-line no-process-exit */
         process.exit(1);
       }, 30_000);
 
@@ -305,12 +277,12 @@ async function start(): Promise<void> {
 
         clearTimeout(shutdownTimeout);
         logger.info('Graceful shutdown complete');
-        // eslint-disable-next-line no-process-exit
+        /* eslint-disable-next-line no-process-exit */
         process.exit(0);
       } catch (error: unknown) {
         logger.error({ error }, 'Error during shutdown');
         clearTimeout(shutdownTimeout);
-        // eslint-disable-next-line no-process-exit
+        /* eslint-disable-next-line no-process-exit */
         process.exit(1);
       }
     };
@@ -321,17 +293,16 @@ async function start(): Promise<void> {
     process.on('SIGINT', () => {
       void shutdown('SIGINT');
     });
-
-    // Handle uncaught errors - exit immediately, don't attempt graceful shutdown
+    /* Handle uncaught errors - exit immediately, don't attempt graceful shutdown */
     process.on('uncaughtException', (error) => {
       logger.fatal({ error }, 'Uncaught exception');
-      // eslint-disable-next-line no-process-exit
+      /* eslint-disable-next-line no-process-exit */
       process.exit(1);
     });
 
     process.on('unhandledRejection', (reason) => {
       logger.fatal({ reason }, 'Unhandled rejection');
-      // eslint-disable-next-line no-process-exit
+      /* eslint-disable-next-line no-process-exit */
       process.exit(1);
     });
   } catch (error) {
@@ -339,6 +310,5 @@ async function start(): Promise<void> {
     throw error;
   }
 }
-
-// Start the server
+/* Start the server */
 void start();

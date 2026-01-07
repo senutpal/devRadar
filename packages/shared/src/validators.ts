@@ -1,23 +1,15 @@
 import { z } from 'zod';
 
-/**
- * User status schema.
- */
+/*** User status schema ***/
 export const UserStatusTypeSchema = z.enum(['online', 'idle', 'dnd', 'offline']);
 
-/**
- * Tier schema.
- */
+/*** Tier schema ***/
 export const TierSchema = z.enum(['FREE', 'PRO', 'TEAM']);
 
-/**
- * Role schema.
- */
+/*** Role schema ***/
 export const RoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
 
-/**
- * Message type schema.
- */
+/*** Message type schema ***/
 export const MessageTypeSchema = z.enum([
   'STATUS_UPDATE',
   'FRIEND_STATUS',
@@ -29,9 +21,7 @@ export const MessageTypeSchema = z.enum([
   'PONG',
 ]);
 
-/**
- * Activity payload schema.
- */
+/*** Activity payload schema ***/
 export const ActivityPayloadSchema = z.object({
   fileName: z.string().max(255).optional(),
   language: z.string().max(50).optional(),
@@ -41,9 +31,7 @@ export const ActivityPayloadSchema = z.object({
   intensity: z.number().int().min(0).max(100).optional(),
 });
 
-/**
- * User status schema.
- */
+/*** User status schema ***/
 export const UserStatusSchema = z.object({
   userId: z.string().min(1),
   status: UserStatusTypeSchema,
@@ -51,9 +39,7 @@ export const UserStatusSchema = z.object({
   updatedAt: z.number().int().positive(),
 });
 
-/**
- * WebSocket message schema.
- */
+/*** WebSocket message schema ***/
 export const WebSocketMessageSchema = z.object({
   type: MessageTypeSchema,
   payload: z.unknown(),
@@ -61,39 +47,30 @@ export const WebSocketMessageSchema = z.object({
   correlationId: z.string().uuid().optional(),
 });
 
-/**
- * Poke payload schema.
- */
+/*** Poke payload schema ***/
 export const PokePayloadSchema = z.object({
   fromUserId: z.string().min(1),
   toUserId: z.string().min(1),
   message: z.string().max(280).optional(),
 });
 
-/**
- * Login request schema.
- */
+/*** Login request schema ***/
 export const LoginRequestSchema = z.object({
   code: z.string().min(1, 'GitHub authorization code is required'),
 });
 
-/**
- * User update schema.
- */
+/*** User update schema ***/
 export const UserUpdateSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   privacyMode: z.boolean().optional(),
 });
 
-/**
- * Pagination query schema.
- */
+/*** Pagination query schema ***/
 export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
-
-// Type exports from schemas
+/* Type exports from schemas */
 export type ActivityPayloadInput = z.infer<typeof ActivityPayloadSchema>;
 export type UserStatusInput = z.infer<typeof UserStatusSchema>;
 export type WebSocketMessageInput = z.infer<typeof WebSocketMessageSchema>;

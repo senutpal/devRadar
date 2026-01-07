@@ -5,7 +5,7 @@ export const nodeConfig = [
   ...baseConfig,
   {
     rules: {
-      // Node.js specific rules
+      /* Node.js specific rules */
       'no-process-exit': 'error',
     },
   },

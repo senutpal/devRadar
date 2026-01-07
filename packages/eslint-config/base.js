@@ -25,7 +25,7 @@ export const baseConfig = tseslint.config(
       import: pluginImport,
     },
     rules: {
-      // TypeScript specific
+      /* TypeScript specific */
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -44,8 +44,7 @@ export const baseConfig = tseslint.config(
       ],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-
-      // Import ordering
+      /* Import ordering */
       'import/order': [
         'warn',
         {
@@ -55,8 +54,7 @@ export const baseConfig = tseslint.config(
         },
       ],
       'import/no-duplicates': 'warn',
-
-      // General
+      /* General */
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'error',
       'no-var': 'error',

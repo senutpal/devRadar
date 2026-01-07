@@ -1,5 +1,4 @@
-/**
- * Redis Service
+/*** Redis Service
  *
  * ioredis client with:
  * - Separate clients for commands and pub/sub (required by Redis protocol)
@@ -15,15 +14,12 @@ import { logger } from '@/lib/logger';
 
 /**
  * Redis client instances.
- * We need separate clients for regular commands and pub/sub.
- */
+ * We need separate clients for regular commands and pub/sub ***/
 let commandClient: Redis | null = null;
 let subscribeClient: Redis | null = null;
 let publishClient: Redis | null = null;
 
-/**
- * Common Redis options for all clients.
- */
+/*** Common Redis options for all clients ***/
 const commonOptions: RedisOptions = {
   maxRetriesPerRequest: 3,
   retryStrategy: (times: number) => {
@@ -38,9 +34,7 @@ const commonOptions: RedisOptions = {
   lazyConnect: true,
 };
 
-/**
- * Create a Redis client with event handlers.
- */
+/*** Create a Redis client with event handlers ***/
 function createClient(name: string): Redis {
   const client = new Redis(env.REDIS_URL, {
     ...commonOptions,
@@ -66,35 +60,27 @@ function createClient(name: string): Redis {
   return client;
 }
 
-/**
- * Get the command Redis client (for SET, GET, etc.).
- */
+/*** Get the command Redis client (for SET, GET, etc.) ***/
 export function getRedis(): Redis {
   commandClient ??= createClient('command');
   return commandClient;
 }
 
-/**
- * Get the subscribe Redis client (for subscribing to channels).
- * Must be a separate client from command client.
- */
+/*** Get the subscribe Redis client (for subscribing to channels).
+ * Must be a separate client from command client ***/
 export function getRedisSubscriber(): Redis {
   subscribeClient ??= createClient('subscriber');
   return subscribeClient;
 }
 
-/**
- * Get the publish Redis client (for publishing to channels).
- */
+/*** Get the publish Redis client (for publishing to channels) ***/
 export function getRedisPublisher(): Redis {
   publishClient ??= createClient('publisher');
   return publishClient;
 }
 
-/**
- * Connect all Redis clients.
- * Call this during server startup.
- */
+/*** Connect all Redis clients.
+ * Call this during server startup ***/
 export async function connectRedis(): Promise<void> {
   try {
     const cmd = getRedis();
@@ -110,10 +96,8 @@ export async function connectRedis(): Promise<void> {
   }
 }
 
-/**
- * Disconnect all Redis clients.
- * Call this during graceful shutdown.
- */
+/*** Disconnect all Redis clients.
+ * Call this during graceful shutdown ***/
 export async function disconnectRedis(): Promise<void> {
   const clients = [
     { name: 'command', client: commandClient },
@@ -133,8 +117,7 @@ export async function disconnectRedis(): Promise<void> {
       }
     })
   );
-
-  // Always nullify clients regardless of quit success
+  /* Always nullify clients regardless of quit success */
   commandClient = null;
   subscribeClient = null;
   publishClient = null;
@@ -147,9 +130,7 @@ export async function disconnectRedis(): Promise<void> {
   }
 }
 
-/**
- * Health check - verify Redis connectivity.
- */
+/*** Health check - verify Redis connectivity ***/
 export async function isRedisHealthy(): Promise<boolean> {
   try {
     const redis = getRedis();
@@ -159,10 +140,9 @@ export async function isRedisHealthy(): Promise<boolean> {
     return false;
   }
 }
-
-// ===================
-// Presence Helpers
-// ===================
+/* =================== */
+/* Presence Helpers */
+/* =================== */
 
 interface PresenceData {
   userId: string;
@@ -181,21 +161,18 @@ interface PresenceData {
 export async function setPresence(userId: string, data: PresenceData): Promise<void> {
   const redis = getRedis();
   const key = REDIS_KEYS.presence(userId);
-
-  // Get existing presence to check if it changed
+  /* Get existing presence to check if it changed */
   const existing = await redis.get(key);
   const existingData = existing ? (JSON.parse(existing) as PresenceData) : null;
-
-  // Always update TTL with new data
+  /* Always update TTL with new data */
   await redis.setex(key, PRESENCE_TTL_SECONDS, JSON.stringify(data));
-
-  // Only publish if status or activity actually changed (throttle unchanged heartbeats)
+  /* Only publish if status or activity actually changed (throttle unchanged heartbeats) */
   const hasChanged =
     existingData?.status !== data.status ||
     JSON.stringify(existingData.activity) !== JSON.stringify(data.activity);
 
   if (hasChanged) {
-    // Fire-and-forget: don't await publish to avoid blocking on pub/sub failures
+    /* Fire-and-forget: don't await publish to avoid blocking on pub/sub failures */
     const pub = getRedisPublisher();
     pub
       .publish(REDIS_KEYS.presenceChannel(userId), JSON.stringify(data))
@@ -262,17 +239,16 @@ export async function getPresences(userIds: string[]): Promise<Map<string, Prese
           presenceMap.set(userId, JSON.parse(data) as PresenceData);
         }
       } catch {
-        // Skip invalid data
+        /* Skip invalid data */
       }
     }
   });
 
   return presenceMap;
 }
-
-// ===================
-// Token Blacklist Helpers
-// ===================
+/* =================== */
+/* Token Blacklist Helpers */
+/* =================== */
 
 const TOKEN_BLACKLIST_PREFIX = 'blacklist:';
 

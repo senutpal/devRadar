@@ -1,15 +1,11 @@
-/**
- * WebSocket Types
+/*** WebSocket Types
  *
- * Type definitions for WebSocket communication.
- */
+ * Type definitions for WebSocket communication ***/
 
 import type { UserStatusType, ActivityPayload as SharedActivityPayload } from '@devradar/shared';
 import type { WebSocket } from 'ws';
 
-/**
- * Extended WebSocket with user context.
- */
+/*** Extended WebSocket with user context ***/
 export interface AuthenticatedWebSocket extends WebSocket {
   /** User ID from JWT */
   userId: string;
@@ -30,9 +26,7 @@ export interface AuthenticatedWebSocket extends WebSocket {
   presenceMessageHandler?: (channel: string, message: string) => void;
 }
 
-/**
- * Inbound WebSocket message types.
- */
+/*** Inbound WebSocket message types ***/
 export type InboundMessageType =
   | 'HEARTBEAT'
   | 'POKE'
@@ -41,9 +35,7 @@ export type InboundMessageType =
   | 'STATUS_UPDATE'
   | 'PING';
 
-/**
- * Outbound WebSocket message types.
- */
+/*** Outbound WebSocket message types ***/
 export type OutboundMessageType =
   | 'STATUS_UPDATE'
   | 'FRIEND_STATUS'
@@ -52,9 +44,7 @@ export type OutboundMessageType =
   | 'CONNECTED'
   | 'PONG';
 
-/**
- * Base WebSocket message structure.
- */
+/*** Base WebSocket message structure ***/
 export interface WsMessage<T = unknown> {
   type: InboundMessageType | OutboundMessageType;
   payload: T;
@@ -62,26 +52,20 @@ export interface WsMessage<T = unknown> {
   correlationId?: string | undefined;
 }
 
-/**
- * Heartbeat payload (inbound).
- */
+/*** Heartbeat payload (inbound) ***/
 export interface HeartbeatPayload {
   status: UserStatusType;
   activity?: SharedActivityPayload | undefined;
 }
 
-/**
- * Poke payload (inbound/outbound).
- */
+/*** Poke payload (inbound/outbound) ***/
 export interface PokePayload {
   toUserId: string;
   fromUserId?: string | undefined;
   message?: string | undefined;
 }
 
-/**
- * Friend status update payload (outbound).
- */
+/*** Friend status update payload (outbound) ***/
 export interface FriendStatusPayload {
   userId: string;
   status: UserStatusType;
@@ -89,26 +73,20 @@ export interface FriendStatusPayload {
   updatedAt: number;
 }
 
-/**
- * Connected payload (outbound).
- */
+/*** Connected payload (outbound) ***/
 export interface ConnectedPayload {
   userId: string;
   friendCount: number;
 }
 
-/**
- * Error payload (outbound).
- */
+/*** Error payload (outbound) ***/
 export interface ErrorPayload {
   code: string;
   message: string;
   details?: Record<string, unknown> | undefined;
 }
 
-/**
- * WebSocket close codes.
- */
+/*** WebSocket close codes ***/
 export const WsCloseCodes = {
   NORMAL: 1000,
   GOING_AWAY: 1001,
@@ -117,17 +95,14 @@ export const WsCloseCodes = {
   POLICY_VIOLATION: 1008,
   MESSAGE_TOO_BIG: 1009,
   SERVER_ERROR: 1011,
-
-  // Custom codes (4000-4999)
+  /* Custom codes (4000-4999) */
   UNAUTHORIZED: 4001,
   INVALID_TOKEN: 4002,
   TOKEN_EXPIRED: 4003,
   RATE_LIMITED: 4029,
 } as const;
 
-/**
- * WebSocket close reasons.
- */
+/*** WebSocket close reasons ***/
 export const WsCloseReasons: Record<number, string> = {
   [WsCloseCodes.NORMAL]: 'Normal closure',
   [WsCloseCodes.GOING_AWAY]: 'Going away',

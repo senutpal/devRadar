@@ -1,9 +1,7 @@
-/**
- * Authentication Service
+/*** Authentication Service
  *
  * Handles GitHub OAuth flow and token management.
- * Uses VS Code's built-in authentication API for secure token storage.
- */
+ * Uses VS Code's built-in authentication API for secure token storage ***/
 
 import * as vscode from 'vscode';
 
@@ -11,24 +9,18 @@ import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
 import type { UserDTO } from '@devradar/shared';
 
-/**
- * Authentication state.
- */
+/*** Authentication state ***/
 export interface AuthState {
   isAuthenticated: boolean;
   user: UserDTO | null;
   token: string | null;
 }
 
-/**
- * Token storage key in VS Code secrets.
- */
+/*** Token storage key in VS Code secrets ***/
 const TOKEN_KEY = 'devradar.accessToken';
 const USER_KEY = 'devradar.user';
 
-/**
- * Handles authentication with the DevRadar backend.
- */
+/*** Handles authentication with the DevRadar backend ***/
 export class AuthService implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private readonly onAuthStateChangeEmitter = new vscode.EventEmitter<boolean>();
@@ -36,9 +28,7 @@ export class AuthService implements vscode.Disposable {
   private currentUser: UserDTO | null = null;
   private accessToken: string | null = null;
 
-  /**
-   * Event that fires when auth state changes.
-   */
+  /*** Event that fires when auth state changes ***/
   readonly onAuthStateChange = this.onAuthStateChangeEmitter.event;
 
   constructor(
@@ -48,11 +38,11 @@ export class AuthService implements vscode.Disposable {
   ) {
     this.disposables.push(this.onAuthStateChangeEmitter);
 
-    // Register URI handler once for OAuth callbacks
+    /* Register URI handler once for OAuth callbacks */
     this.uriHandler = new DevRadarUriHandler(this.logger);
     this.disposables.push(vscode.window.registerUriHandler(this.uriHandler));
 
-    // Start periodic token validation (every 5 minutes)
+    /* Start periodic token validation (every 5 minutes) */
     const validationInterval = setInterval(
       () => {
         void this.revalidateSession();
@@ -66,9 +56,7 @@ export class AuthService implements vscode.Disposable {
     });
   }
 
-  /**
-   * Revalidates the current session.
-   */
+  /*** Revalidates the current session ***/
   private async revalidateSession(): Promise<void> {
     if (!this.accessToken) return;
 
@@ -79,26 +67,26 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /**
-   * Checks if user is authenticated.
-   */
+  /*** Checks if user is authenticated ***/
   async isAuthenticated(): Promise<boolean> {
     if (this.accessToken) {
-      // Validate in background if enough time has passed (e.g. 5 minutes)
-      // For now, we'll optimistically return true but verify in background
-      // If invalid, it will trigger logout which fires the event
-      // To strictly enforce validation on every check would add latency
+      /* 
+      Validate in background if enough time has passed (e.g. 5 minutes)
+      For now, we'll optimistically return true but verify in background
+      If invalid, it will trigger logout which fires the event
+      To strictly enforce validation on every check would add latency
 
-      // Simple expiration check could be added here if we had the expiry time
+      Simple expiration check could be added here if we had the expiry time
+      */
       return true;
     }
 
-    // Try to restore from secrets
+    /* Try to restore from secrets */
     const token = await this.context.secrets.get(TOKEN_KEY);
     if (token) {
       this.accessToken = token;
 
-      // Restore user info
+      /* Restore user info */
       const userJson = this.context.globalState.get<string>(USER_KEY);
       if (userJson) {
         try {
@@ -108,7 +96,7 @@ export class AuthService implements vscode.Disposable {
         }
       }
 
-      // Validate token with server
+      /* Validate token with server */
       const isValid = await this.validateToken(token);
       if (!isValid) {
         await this.clearAuth();
@@ -121,23 +109,17 @@ export class AuthService implements vscode.Disposable {
     return false;
   }
 
-  /**
-   * Gets the current user.
-   */
+  /*** Gets the current user ***/
   getUser(): UserDTO | null {
     return this.currentUser;
   }
 
-  /**
-   * Gets the access token.
-   */
+  /*** Gets the access token ***/
   getToken(): string | null {
     return this.accessToken;
   }
 
-  /**
-   * Initiates the GitHub OAuth login flow.
-   */
+  /*** Initiates the GitHub OAuth login flow ***/
   async login(): Promise<boolean> {
     try {
       this.logger.info('Starting GitHub OAuth flow...');
@@ -147,24 +129,25 @@ export class AuthService implements vscode.Disposable {
         vscode.Uri.parse(`${vscode.env.uriScheme}://devradar.devradar/auth/callback`)
       );
 
-      // Open browser for OAuth
+      /* Open browser for OAuth */
       const authUrl = `${serverUrl}/auth/github?redirect_uri=${encodeURIComponent(callbackUri.toString())}`;
 
       await vscode.env.openExternal(vscode.Uri.parse(authUrl));
 
-      // Wait for callback with token
-      const result = await this.uriHandler.waitForCallback(60_000); // 60 second timeout
+      /* Wait for callback with token */
+      const result = await this.uriHandler.waitForCallback(60_000);
+      /* 60 second timeout */
 
       if (!result.success || !result.token) {
         this.logger.error('OAuth callback failed', result.error);
         return false;
       }
 
-      // Store token securely
+      /* Store token securely */
       await this.context.secrets.store(TOKEN_KEY, result.token);
       this.accessToken = result.token;
 
-      // Fetch user profile
+      /* Fetch user profile */
       await this.fetchUserProfile();
 
       this.logger.info('Login successful');
@@ -177,14 +160,12 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /**
-   * Logs out the current user.
-   */
+  /*** Logs out the current user ***/
   async logout(): Promise<void> {
     this.logger.info('Logging out...');
 
     try {
-      // Notify server (optional, fire and forget)
+      /* Notify server (optional, fire and forget) */
       const serverUrl = this.configManager.get('serverUrl');
       if (this.accessToken) {
         void fetch(`${serverUrl}/auth/logout`, {
@@ -193,7 +174,7 @@ export class AuthService implements vscode.Disposable {
             Authorization: `Bearer ${this.accessToken}`,
           },
         }).catch(() => {
-          // Ignore errors
+          /* Ignore errors */
         });
       }
     } finally {
@@ -202,9 +183,7 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /**
-   * Validates a token with the server.
-   */
+  /*** Validates a token with the server ***/
   private async validateToken(token: string): Promise<boolean> {
     try {
       const serverUrl = this.configManager.get('serverUrl');
@@ -228,9 +207,7 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /**
-   * Fetches the user profile from the server.
-   */
+  /*** Fetches the user profile from the server ***/
   private async fetchUserProfile(): Promise<void> {
     try {
       const serverUrl = this.configManager.get('serverUrl');
@@ -253,9 +230,7 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /**
-   * Clears all auth state.
-   */
+  /*** Clears all auth state ***/
   private async clearAuth(): Promise<void> {
     this.accessToken = null;
     this.currentUser = null;
@@ -270,9 +245,7 @@ export class AuthService implements vscode.Disposable {
   }
 }
 
-/**
- * URI Handler for OAuth callback.
- */
+/*** URI Handler for OAuth callback ***/
 class DevRadarUriHandler implements vscode.UriHandler {
   private callbackResolve:
     | ((result: { success: boolean; token?: string; error?: string }) => void)
@@ -281,9 +254,7 @@ class DevRadarUriHandler implements vscode.UriHandler {
 
   constructor(private readonly logger: Logger) {}
 
-  /**
-   * Handles incoming URI from OAuth callback.
-   */
+  /*** Handles incoming URI from OAuth callback ***/
   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
     this.logger.info('Received callback URI', {
       path: uri.path,
@@ -292,7 +263,7 @@ class DevRadarUriHandler implements vscode.UriHandler {
       authority: uri.authority,
     });
 
-    // Check if this is an auth callback (handle both /auth/callback and variations)
+    /* Check if this is an auth callback (handle both /auth/callback and variations) */
     if (uri.path.includes('auth/callback') || uri.path.includes('callback')) {
       const params = new URLSearchParams(uri.query);
       const token = params.get('token');
@@ -324,9 +295,7 @@ class DevRadarUriHandler implements vscode.UriHandler {
     }
   }
 
-  /**
-   * Waits for the OAuth callback with timeout.
-   */
+  /*** Waits for the OAuth callback with timeout ***/
   waitForCallback(
     timeoutMs: number
   ): Promise<{ success: boolean; token?: string; error?: string }> {

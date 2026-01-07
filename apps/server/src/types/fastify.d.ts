@@ -1,8 +1,6 @@
-/**
- * Fastify Type Extensions
+/*** Fastify Type Extensions
  *
- * Extends Fastify's type system for custom decorators.
- */
+ * Extends Fastify's type system for custom decorators ***/
 
 import type { FastifyRequest, FastifyReply } from 'fastify';
 

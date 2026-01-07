@@ -1,9 +1,7 @@
-/**
- * DevRadar VS Code Extension
+/*** DevRadar VS Code Extension
  *
  * Main entry point for the extension. Handles activation, deactivation,
- * and orchestrates all services.
- */
+ * and orchestrates all services ***/
 
 import * as vscode from 'vscode';
 
@@ -18,9 +16,7 @@ import { StatusBarManager } from './views/statusBarItem';
 
 import type { UserStatusType } from '@devradar/shared';
 
-/**
- * Extension context manager that coordinates all services.
- */
+/*** Extension context manager that coordinates all services ***/
 class DevRadarExtension implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private readonly logger: Logger;
@@ -35,18 +31,15 @@ class DevRadarExtension implements vscode.Disposable {
   constructor(context: vscode.ExtensionContext) {
     this.logger = new Logger('DevRadar');
     this.configManager = new ConfigManager();
-
-    // Initialize services
+    /* Initialize services */
     this.authService = new AuthService(context, this.configManager, this.logger);
     this.wsClient = new WebSocketClient(this.authService, this.configManager, this.logger);
     this.activityTracker = new ActivityTracker(this.wsClient, this.configManager, this.logger);
-
-    // Initialize views
+    /* Initialize views */
     this.friendsProvider = new FriendsProvider(this.logger);
     this.activityProvider = new ActivityProvider(this.wsClient, this.logger);
     this.statusBar = new StatusBarManager(this.wsClient, this.authService, this.logger);
-
-    // Track disposables
+    /* Track disposables */
     this.disposables.push(
       this.authService,
       this.wsClient,
@@ -58,23 +51,18 @@ class DevRadarExtension implements vscode.Disposable {
     );
   }
 
-  /**
-   * Activates the extension and registers all commands/views.
-   */
+  /*** Activates the extension and registers all commands/views ***/
   async activate(): Promise<void> {
     this.logger.info('Activating DevRadar extension...');
 
     try {
-      // Register tree views
+      /* Register tree views */
       this.registerTreeViews();
-
-      // Register commands
+      /* Register commands */
       this.registerCommands();
-
-      // Setup event listeners
+      /* Setup event listeners */
       this.setupEventListeners();
-
-      // Initialize auth and connect if logged in
+      /* Initialize auth and connect if logged in */
       await this.initializeConnection();
 
       this.logger.info('DevRadar extension activated successfully');
@@ -84,9 +72,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Registers tree view providers for sidebar.
-   */
+  /*** Registers tree view providers for sidebar ***/
   private registerTreeViews(): void {
     this.disposables.push(
       vscode.window.registerTreeDataProvider('devradar.friends', this.friendsProvider),
@@ -94,9 +80,7 @@ class DevRadarExtension implements vscode.Disposable {
     );
   }
 
-  /**
-   * Registers all extension commands.
-   */
+  /*** Registers all extension commands ***/
   private registerCommands(): void {
     const commands: { id: string; handler: (...args: unknown[]) => unknown }[] = [
       {
@@ -138,11 +122,9 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Sets up event listeners for configuration changes and auth events.
-   */
+  /*** Sets up event listeners for configuration changes and auth events ***/
   private setupEventListeners(): void {
-    // Listen for configuration changes
+    /* Listen for configuration changes */
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('devradar')) {
@@ -151,10 +133,9 @@ class DevRadarExtension implements vscode.Disposable {
         }
       })
     );
-
-    // Listen for auth state changes
+    /* Listen for auth state changes */
     this.authService.onAuthStateChange((isAuthenticated) => {
-      // Update VS Code context for viewsWelcome visibility
+      /* Update VS Code context for viewsWelcome visibility */
       void vscode.commands.executeCommand(
         'setContext',
         'devradar.isAuthenticated',
@@ -171,8 +152,7 @@ class DevRadarExtension implements vscode.Disposable {
       this.friendsProvider.refresh();
       void this.statusBar.update();
     });
-
-    // Listen for WebSocket messages
+    /* Listen for WebSocket messages */
     this.wsClient.onMessage((message) => {
       switch (message.type) {
         case 'FRIEND_STATUS':
@@ -192,20 +172,16 @@ class DevRadarExtension implements vscode.Disposable {
           break;
       }
     });
-
-    // Listen for connection state changes
+    /* Listen for connection state changes */
     this.wsClient.onConnectionStateChange((state) => {
       this.statusBar.setConnectionState(state);
     });
   }
 
-  /**
-   * Initializes the connection if user is already authenticated.
-   */
+  /*** Initializes the connection if user is already authenticated ***/
   private async initializeConnection(): Promise<void> {
     const isAuthenticated = await this.authService.isAuthenticated();
-
-    // Set initial VS Code context for viewsWelcome visibility
+    /* Set initial VS Code context for viewsWelcome visibility */
     void vscode.commands.executeCommand('setContext', 'devradar.isAuthenticated', isAuthenticated);
 
     if (isAuthenticated) {
@@ -220,9 +196,7 @@ class DevRadarExtension implements vscode.Disposable {
     this.friendsProvider.refresh();
   }
 
-  /**
-   * Handles the login command.
-   */
+  /*** Handles the login command ***/
   private async handleLogin(): Promise<void> {
     try {
       this.logger.info('Starting login flow...');
@@ -237,9 +211,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles the logout command.
-   */
+  /*** Handles the logout command ***/
   private async handleLogout(): Promise<void> {
     try {
       await this.authService.logout();
@@ -249,9 +221,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles toggling privacy mode.
-   */
+  /*** Handles toggling privacy mode ***/
   private async handleTogglePrivacy(): Promise<void> {
     const currentMode = this.configManager.get('privacyMode');
     const newMode = !currentMode;
@@ -263,14 +233,11 @@ class DevRadarExtension implements vscode.Disposable {
       : 'DevRadar: Privacy mode disabled - your activity is now visible';
 
     void vscode.window.showInformationMessage(message);
-
-    // Send update to server
+    /* Send update to server */
     this.activityTracker.sendStatusUpdate();
   }
 
-  /**
-   * Type guard for friend item.
-   */
+  /*** Type guard for friend item ***/
   private isFriendItem(item: unknown): item is { userId: string; username?: string } {
     return (
       typeof item === 'object' &&
@@ -280,14 +247,12 @@ class DevRadarExtension implements vscode.Disposable {
     );
   }
 
-  /**
-   * Handles the poke command for a friend.
-   */
+  /*** Handles the poke command for a friend ***/
   private async handlePoke(item: unknown): Promise<void> {
     if (this.isFriendItem(item)) {
       await this.sendPoke(item.userId);
     } else {
-      // Show quick pick to select friend
+      /* Show quick pick to select friend */
       const friends = this.friendsProvider.getOnlineFriends();
       if (friends.length === 0) {
         void vscode.window.showInformationMessage('DevRadar: No friends online to poke');
@@ -309,9 +274,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Sends a poke to a specific user.
-   */
+  /*** Sends a poke to a specific user ***/
   private async sendPoke(userId: string): Promise<void> {
     const message = await vscode.window.showInputBox({
       prompt: 'Optional message with your poke (max 500 chars)',
@@ -329,7 +292,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
 
     const trimmedMessage = message.trim();
-    // Sanitize: strip control characters and angle brackets (poke messages are plain text)
+    /* Sanitize: strip control characters and angle brackets (poke messages are plain text) */
     /* eslint-disable no-control-regex */
     const sanitizedMessage = trimmedMessage
       .replace(/[\u0000-\u001f\u007f-\u009f]/g, '') // Remove control chars
@@ -340,16 +303,12 @@ class DevRadarExtension implements vscode.Disposable {
     void vscode.window.showInformationMessage('DevRadar: Poke sent! 👋');
   }
 
-  /**
-   * Handles refreshing the friends list.
-   */
+  /*** Handles refreshing the friends list ***/
   private handleRefreshFriends(): void {
     this.friendsProvider.refresh();
   }
 
-  /**
-   * Handles viewing a friend's profile.
-   */
+  /*** Handles viewing a friend's profile ***/
   private handleViewProfile(item: unknown): void {
     if (item && typeof item === 'object' && 'userId' in item) {
       const friendItem = item as { userId: string; username?: string };
@@ -361,9 +320,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles setting the user's status.
-   */
+  /*** Handles setting the user's status ***/
   private async handleSetStatus(): Promise<void> {
     const statuses: { label: string; value: UserStatusType; icon: string }[] = [
       { label: 'Online', value: 'online', icon: '🟢' },
@@ -386,18 +343,14 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles configuration changes.
-   */
+  /*** Handles configuration changes ***/
   private handleConfigChange(): void {
     this.logger.debug('Configuration changed, updating services...');
     this.activityTracker.reconfigure();
     void this.statusBar.update();
   }
 
-  /**
-   * Handles receiving a poke from another user.
-   */
+  /*** Handles receiving a poke from another user ***/
   private handlePokeReceived(payload: unknown): void {
     if (!this.configManager.get('enableNotifications')) {
       return;
@@ -418,9 +371,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles conflict alert from server.
-   */
+  /*** Handles conflict alert from server ***/
   private handleConflictAlert(payload: unknown): void {
     if (!this.configManager.get('enableNotifications')) {
       return;
@@ -437,9 +388,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles achievement notification.
-   */
+  /*** Handles achievement notification ***/
   private handleAchievement(payload: unknown): void {
     if (!this.configManager.get('enableNotifications')) {
       return;
@@ -454,9 +403,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Handles server errors.
-   */
+  /*** Handles server errors ***/
   private handleServerError(payload: unknown): void {
     if (typeof payload === 'object' && payload !== null && 'message' in payload) {
       const error = payload as { message: string; code?: string };
@@ -464,9 +411,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 
-  /**
-   * Disposes all resources.
-   */
+  /*** Disposes all resources ***/
   dispose(): void {
     this.logger.info('Disposing DevRadar extension...');
 
@@ -475,22 +420,17 @@ class DevRadarExtension implements vscode.Disposable {
     }
   }
 }
-
-// Singleton instance
+/* Singleton instance */
 let extension: DevRadarExtension | undefined;
 
-/**
- * Extension activation entry point.
- */
+/*** Extension activation entry point ***/
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   extension = new DevRadarExtension(context);
   context.subscriptions.push(extension);
   await extension.activate();
 }
 
-/**
- * Extension deactivation entry point.
- */
+/*** Extension deactivation entry point ***/
 export function deactivate(): void {
   extension?.dispose();
   extension = undefined;

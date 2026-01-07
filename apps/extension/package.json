@@ -48,6 +48,12 @@
           "contextualTitle": "DevRadar Friends"
         },
         {
+          "id": "devradar.friendRequests",
+          "name": "Friend Requests",
+          "icon": "media/requests.svg",
+          "contextualTitle": "DevRadar Friend Requests"
+        },
+        {
           "id": "devradar.activity",
           "name": "Activity",
           "icon": "media/activity.svg",
@@ -104,6 +110,42 @@
         "title": "Set Status",
         "category": "DevRadar",
         "icon": "$(broadcast)"
+      },
+      {
+        "command": "devradar.addFriend",
+        "title": "Add Friend",
+        "category": "DevRadar",
+        "icon": "$(person-add)"
+      },
+      {
+        "command": "devradar.acceptFriendRequest",
+        "title": "Accept Friend Request",
+        "category": "DevRadar",
+        "icon": "$(check)"
+      },
+      {
+        "command": "devradar.rejectFriendRequest",
+        "title": "Reject Friend Request",
+        "category": "DevRadar",
+        "icon": "$(close)"
+      },
+      {
+        "command": "devradar.cancelFriendRequest",
+        "title": "Cancel Friend Request",
+        "category": "DevRadar",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "devradar.refreshFriendRequests",
+        "title": "Refresh Friend Requests",
+        "category": "DevRadar",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "devradar.unfriend",
+        "title": "Unfriend",
+        "category": "DevRadar",
+        "icon": "$(person-remove)"
       }
     ],
     "menus": {
@@ -111,6 +153,16 @@
         {
           "command": "devradar.refreshFriends",
           "when": "view == devradar.friends",
+          "group": "navigation"
+        },
+        {
+          "command": "devradar.addFriend",
+          "when": "view == devradar.friends && devradar.isAuthenticated",
+          "group": "navigation"
+        },
+        {
+          "command": "devradar.refreshFriendRequests",
+          "when": "view == devradar.friendRequests",
           "group": "navigation"
         }
       ],
@@ -123,6 +175,25 @@
         {
           "command": "devradar.viewProfile",
           "when": "view == devradar.friends"
+        },
+        {
+          "command": "devradar.unfriend",
+          "when": "view == devradar.friends && viewItem =~ /^friend-/"
+        },
+        {
+          "command": "devradar.acceptFriendRequest",
+          "when": "view == devradar.friendRequests && viewItem == friendRequest-incoming",
+          "group": "inline@1"
+        },
+        {
+          "command": "devradar.rejectFriendRequest",
+          "when": "view == devradar.friendRequests && viewItem == friendRequest-incoming",
+          "group": "inline@2"
+        },
+        {
+          "command": "devradar.cancelFriendRequest",
+          "when": "view == devradar.friendRequests && viewItem == friendRequest-outgoing",
+          "group": "inline"
         }
       ]
     },

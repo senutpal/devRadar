@@ -7,14 +7,16 @@ import * as vscode from 'vscode';
 
 import { ActivityTracker } from './services/activityTracker';
 import { AuthService } from './services/authService';
+import { FriendRequestService } from './services/friendRequestService';
 import { WebSocketClient } from './services/wsClient';
 import { ConfigManager } from './utils/configManager';
 import { Logger } from './utils/logger';
 import { ActivityProvider } from './views/activityProvider';
+import { FriendRequestsProvider } from './views/friendRequestsProvider';
 import { FriendsProvider } from './views/friendsProvider';
 import { StatusBarManager } from './views/statusBarItem';
 
-import type { UserStatusType } from '@devradar/shared';
+import type { UserStatusType, FriendRequestDTO, PublicUserDTO } from '@devradar/shared';
 
 /*** Extension context manager that coordinates all services ***/
 class DevRadarExtension implements vscode.Disposable {
@@ -25,6 +27,8 @@ class DevRadarExtension implements vscode.Disposable {
   private readonly wsClient: WebSocketClient;
   private readonly activityTracker: ActivityTracker;
   private readonly friendsProvider: FriendsProvider;
+  private readonly friendRequestsProvider: FriendRequestsProvider;
+  private readonly friendRequestService: FriendRequestService;
   private readonly activityProvider: ActivityProvider;
   private readonly statusBar: StatusBarManager;
 
@@ -35,8 +39,17 @@ class DevRadarExtension implements vscode.Disposable {
     this.authService = new AuthService(context, this.configManager, this.logger);
     this.wsClient = new WebSocketClient(this.authService, this.configManager, this.logger);
     this.activityTracker = new ActivityTracker(this.wsClient, this.configManager, this.logger);
+    this.friendRequestService = new FriendRequestService(
+      this.configManager,
+      this.authService,
+      this.logger
+    );
     /* Initialize views */
     this.friendsProvider = new FriendsProvider(this.logger);
+    this.friendRequestsProvider = new FriendRequestsProvider(
+      this.friendRequestService,
+      this.logger
+    );
     this.activityProvider = new ActivityProvider(this.wsClient, this.logger);
     this.statusBar = new StatusBarManager(this.wsClient, this.authService, this.logger);
     /* Track disposables */
@@ -44,7 +57,9 @@ class DevRadarExtension implements vscode.Disposable {
       this.authService,
       this.wsClient,
       this.activityTracker,
+      this.friendRequestService,
       this.friendsProvider,
+      this.friendRequestsProvider,
       this.activityProvider,
       this.statusBar,
       this.configManager
@@ -76,6 +91,10 @@ class DevRadarExtension implements vscode.Disposable {
   private registerTreeViews(): void {
     this.disposables.push(
       vscode.window.registerTreeDataProvider('devradar.friends', this.friendsProvider),
+      vscode.window.registerTreeDataProvider(
+        'devradar.friendRequests',
+        this.friendRequestsProvider
+      ),
       vscode.window.registerTreeDataProvider('devradar.activity', this.activityProvider)
     );
   }
@@ -114,6 +133,38 @@ class DevRadarExtension implements vscode.Disposable {
       {
         id: 'devradar.setStatus',
         handler: () => this.handleSetStatus(),
+      },
+      {
+        id: 'devradar.addFriend',
+        handler: () => this.handleAddFriend(),
+      },
+      {
+        id: 'devradar.acceptFriendRequest',
+        handler: (item: unknown) => this.handleAcceptFriendRequest(item),
+      },
+      {
+        id: 'devradar.rejectFriendRequest',
+        handler: (item: unknown) => this.handleRejectFriendRequest(item),
+      },
+      {
+        id: 'devradar.cancelFriendRequest',
+        handler: (item: unknown) => this.handleCancelFriendRequest(item),
+      },
+      {
+        id: 'devradar.refreshFriendRequests',
+        handler: () => {
+          this.handleRefreshFriendRequests();
+        },
+      },
+      {
+        id: 'devradar.unfriend',
+        handler: (item: unknown) => this.handleUnfriend(item),
+      },
+      {
+        id: 'devradar.focusFriendRequests',
+        handler: () => {
+          void vscode.commands.executeCommand('devradar.friendRequests.focus');
+        },
       },
     ];
 
@@ -170,6 +221,18 @@ class DevRadarExtension implements vscode.Disposable {
         case 'ERROR':
           this.handleServerError(message.payload);
           break;
+        case 'FRIEND_REQUEST_RECEIVED':
+          this.friendRequestService.handleFriendRequestReceived(
+            message.payload as { request: FriendRequestDTO }
+          );
+          break;
+        case 'FRIEND_REQUEST_ACCEPTED':
+          this.friendRequestService.handleFriendRequestAccepted(
+            message.payload as { requestId: string; friend: PublicUserDTO }
+          );
+          /* Refresh friends list when a new friend is added */
+          this.friendsProvider.refresh();
+          break;
       }
     });
     /* Listen for connection state changes */
@@ -194,6 +257,9 @@ class DevRadarExtension implements vscode.Disposable {
 
     void this.statusBar.update();
     this.friendsProvider.refresh();
+    if (isAuthenticated) {
+      void this.friendRequestsProvider.refresh();
+    }
   }
 
   /*** Handles the login command ***/
@@ -408,6 +474,183 @@ class DevRadarExtension implements vscode.Disposable {
     if (typeof payload === 'object' && payload !== null && 'message' in payload) {
       const error = payload as { message: string; code?: string };
       this.logger.error('Server error', error);
+    }
+  }
+
+  /*** Handles adding a friend via search ***/
+  private async handleAddFriend(): Promise<void> {
+    try {
+      /* Show input box for search query */
+      const query = await vscode.window.showInputBox({
+        prompt: 'Search for a user by username or display name',
+        placeHolder: 'Enter username...',
+        validateInput: (value) => {
+          if (value.length < 2) {
+            return 'Enter at least 2 characters';
+          }
+          return null;
+        },
+      });
+
+      if (!query) {
+        return;
+      }
+
+      /* Search for users */
+      const users = await this.friendRequestService.searchUsers(query);
+
+      if (users.length === 0) {
+        void vscode.window.showInformationMessage('DevRadar: No users found');
+        return;
+      }
+
+      /* Filter out current user */
+      const currentUser = this.authService.getUser();
+      const filteredUsers = users.filter((u) => u.id !== currentUser?.id);
+
+      if (filteredUsers.length === 0) {
+        void vscode.window.showInformationMessage('DevRadar: No other users found');
+        return;
+      }
+
+      /* Show quick pick to select user */
+      const selected = await vscode.window.showQuickPick(
+        filteredUsers.map((u) => ({
+          label: u.displayName ?? u.username,
+          description: `@${u.username}`,
+          userId: u.id,
+        })),
+        { placeHolder: 'Select a user to send friend request' }
+      );
+
+      if (!selected) {
+        return;
+      }
+
+      /* Send friend request */
+      await this.friendRequestService.sendRequest(selected.userId);
+      void vscode.window.showInformationMessage(
+        `DevRadar: Friend request sent to ${selected.label}! 🎉`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to add friend', error);
+      void vscode.window.showErrorMessage(`DevRadar: ${message}`);
+    }
+  }
+
+  /*** Type guard for friend request item ***/
+  private isFriendRequestItem(item: unknown): item is { request: { id: string } } {
+    if (typeof item !== 'object' || item === null) {
+      return false;
+    }
+    if (!('request' in item)) {
+      return false;
+    }
+    const requestItem = item as { request: unknown };
+    if (typeof requestItem.request !== 'object' || requestItem.request === null) {
+      return false;
+    }
+    return 'id' in requestItem.request;
+  }
+
+  /*** Handles accepting a friend request ***/
+  private async handleAcceptFriendRequest(item: unknown): Promise<void> {
+    if (!this.isFriendRequestItem(item)) {
+      this.logger.warn('Invalid friend request item for accept', item);
+      return;
+    }
+
+    try {
+      await this.friendRequestService.acceptRequest(item.request.id);
+      void vscode.window.showInformationMessage('DevRadar: Friend request accepted! 🎉');
+      /* Refresh friends list */
+      this.friendsProvider.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to accept friend request', error);
+      void vscode.window.showErrorMessage(`DevRadar: ${message}`);
+    }
+  }
+
+  /*** Handles rejecting a friend request ***/
+  private async handleRejectFriendRequest(item: unknown): Promise<void> {
+    if (!this.isFriendRequestItem(item)) {
+      this.logger.warn('Invalid friend request item for reject', item);
+      return;
+    }
+
+    try {
+      await this.friendRequestService.rejectRequest(item.request.id);
+      void vscode.window.showInformationMessage('DevRadar: Friend request rejected');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to reject friend request', error);
+      void vscode.window.showErrorMessage(`DevRadar: ${message}`);
+    }
+  }
+
+  /*** Handles cancelling an outgoing friend request ***/
+  private async handleCancelFriendRequest(item: unknown): Promise<void> {
+    if (!this.isFriendRequestItem(item)) {
+      this.logger.warn('Invalid friend request item for cancel', item);
+      return;
+    }
+
+    try {
+      await this.friendRequestService.cancelRequest(item.request.id);
+      void vscode.window.showInformationMessage('DevRadar: Friend request cancelled');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to cancel friend request', error);
+      void vscode.window.showErrorMessage(`DevRadar: ${message}`);
+    }
+  }
+
+  /*** Handles refreshing friend requests ***/
+  private handleRefreshFriendRequests(): void {
+    void this.friendRequestsProvider.refresh();
+  }
+
+  /*** Handles unfriending a user ***/
+  private async handleUnfriend(item: unknown): Promise<void> {
+    if (!this.isFriendItem(item)) {
+      this.logger.warn('Invalid friend item for unfriend', item);
+      return;
+    }
+
+    /* Confirm with user */
+    const confirm = await vscode.window.showWarningMessage(
+      'Are you sure you want to unfriend this user?',
+      { modal: true },
+      'Unfriend'
+    );
+
+    if (confirm !== 'Unfriend') {
+      return;
+    }
+
+    try {
+      const serverUrl = this.configManager.get('serverUrl');
+      const token = this.authService.getToken();
+
+      const response = await fetch(`${serverUrl}/api/v1/friends/${item.userId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token ?? ''}`,
+        },
+      });
+
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to unfriend user');
+      }
+
+      void vscode.window.showInformationMessage('DevRadar: User unfriended');
+      this.friendsProvider.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to unfriend user', error);
+      void vscode.window.showErrorMessage(`DevRadar: ${message}`);
     }
   }
 

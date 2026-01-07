@@ -223,14 +223,16 @@
     "clean": "rimraf dist out"
   },
   "devDependencies": {
-    "@devradar/shared": "workspace:*",
     "@devradar/eslint-config": "workspace:*",
+    "@devradar/shared": "workspace:*",
     "@devradar/tsconfig": "workspace:*",
+    "@types/minimatch": "^6.0.0",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.24.0",
     "eslint": "^9.39.2",
+    "minimatch": "^10.1.1",
     "rimraf": "^6.1.2",
     "typescript": "^5.9.3"
   }

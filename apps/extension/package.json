@@ -223,9 +223,9 @@
     "clean": "rimraf dist out"
   },
   "devDependencies": {
-    "@devradar/shared": "0.0.0",
-    "@devradar/eslint-config": "0.0.0",
-    "@devradar/tsconfig": "0.0.0",
+    "@devradar/shared": "workspace:*",
+    "@devradar/eslint-config": "workspace:*",
+    "@devradar/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.0.0",

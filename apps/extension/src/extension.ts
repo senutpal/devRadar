@@ -631,20 +631,7 @@ class DevRadarExtension implements vscode.Disposable {
     }
 
     try {
-      const serverUrl = this.configManager.get('serverUrl');
-      const token = this.authService.getToken();
-
-      const response = await fetch(`${serverUrl}/api/v1/friends/${item.userId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token ?? ''}`,
-        },
-      });
-
-      if (!response.ok && response.status !== 204) {
-        throw new Error('Failed to unfriend user');
-      }
-
+      await this.friendRequestService.unfriend(item.userId);
       void vscode.window.showInformationMessage('DevRadar: User unfriended');
       this.friendsProvider.refresh();
     } catch (error) {

@@ -9,20 +9,16 @@
  * - DELETE /friend-requests/:id - Cancel an outgoing request
  */
 
-import { PaginationQuerySchema } from '@devradar/shared';
+import { PaginationQuerySchema, SendFriendRequestSchema } from '@devradar/shared';
 import { z } from 'zod';
 
+import type { PublicUserDTO, FriendRequestDTO } from '@devradar/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 import { NotFoundError, ConflictError, ValidationError, AuthorizationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
 import { broadcastToUsers } from '@/ws/handler';
-
-/*** Send friend request body schema ***/
-const SendFriendRequestSchema = z.object({
-  toUserId: z.string().min(1, 'User ID is required'),
-});
 
 /*** Request ID params schema ***/
 const RequestIdParamsSchema = z.object({
@@ -48,23 +44,6 @@ interface FriendRequestWithUsers {
     displayName: string | null;
     avatarUrl: string | null;
   };
-}
-
-/*** Public user DTO for responses ***/
-interface PublicUserDTO {
-  id: string;
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-}
-
-/*** Friend request DTO for responses ***/
-interface FriendRequestDTO {
-  id: string;
-  fromUser: PublicUserDTO;
-  toUser: PublicUserDTO;
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
-  createdAt: string;
 }
 
 /*** Convert user to PublicUserDTO ***/
@@ -129,8 +108,8 @@ export function friendRequestRoutes(app: FastifyInstance): void {
         throw new NotFoundError('User', toUserId);
       }
 
-      /* Check if already friends (bidirectional follow exists) */
-      const existingFollow = await db.follow.findFirst({
+      /* Check if already friends (bidirectional follow - BOTH directions must exist) */
+      const mutualFollows = await db.follow.findMany({
         where: {
           OR: [
             { followerId: userId, followingId: toUserId },
@@ -139,7 +118,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
         },
       });
 
-      if (existingFollow) {
+      if (mutualFollows.length === 2) {
         throw new ConflictError('You are already friends with this user');
       }
 
@@ -170,6 +149,15 @@ export function friendRequestRoutes(app: FastifyInstance): void {
           );
         }
       }
+
+      /* Delete any previously REJECTED requests to allow resending */
+      await db.friendRequest.deleteMany({
+        where: {
+          fromId: userId,
+          toId: toUserId,
+          status: 'REJECTED',
+        },
+      });
 
       /* Get current user info for the response */
       const currentUser = await db.user.findUnique({

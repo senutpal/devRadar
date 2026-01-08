@@ -1,10 +1,14 @@
-/*** Custom Error Classes
+/**
+ * Custom Error Classes
  *
- * Hierarchical error system following rules/09_ERROR_HANDLING.md.
- * Distinguishes between operational errors (expected) and programming errors (bugs) ***/
+ * Hierarchical error system per rules/09_ERROR_HANDLING.md.
+ * Distinguishes operational errors (expected) from programming bugs.
+ */
 
-/*** Base application error class.
- * All custom errors extend from this ***/
+/**
+ * Base application error.
+ * All domain errors extend from this for consistent handling.
+ */
 export abstract class AppError extends Error {
   /** Error code for programmatic handling */
   abstract readonly code: string;
@@ -46,8 +50,7 @@ export abstract class AppError extends Error {
     }
   }
 
-  /*** Convert to JSON-safe object for API responses.
-   * Excludes sensitive information like stack traces ***/
+  /** Serializes error for API response (excludes stack traces). */
   toJSON(): Record<string, unknown> {
     return {
       code: this.code,
@@ -62,8 +65,7 @@ export abstract class AppError extends Error {
 /* Operational Errors (Expected, Recoverable) */
 /* =================== */
 
-/*** 400 Bad Request - Invalid input data
- */
+/** 400 Bad Request - Client sent invalid data. */
 export class ValidationError extends AppError {
   readonly code = 'VALIDATION_ERROR';
   readonly statusCode = 400;
@@ -176,8 +178,7 @@ export class RateLimitError extends AppError {
 /* Programming Errors (Unexpected, Non-Recoverable) */
 /* =================== */
 
-/*** 500 Internal Server Error - Unexpected programming error
- */
+/** 500 Internal Server Error - Unexpected failure. */
 export class InternalError extends AppError {
   readonly code = 'INTERNAL_ERROR';
   readonly statusCode = 500;
@@ -204,19 +205,17 @@ export class ServiceUnavailableError extends AppError {
 /* Type Guards */
 /* =================== */
 
-/**
- * Check if an error is an AppError instance ***/
+/** Type guard for AppError instances. */
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
-/*** Check if an error is operational (expected/recoverable) ***/
+/** Returns true if error is expected/recoverable. */
 export function isOperationalError(error: unknown): boolean {
   return isAppError(error) && error.isOperational;
 }
 
-/*** Wrap unknown errors into AppError.
- * Use this to ensure consistent error handling ***/
+/** Wraps unknown errors into AppError for consistent handling. */
 export function toAppError(error: unknown): AppError {
   if (isAppError(error)) {
     return error;

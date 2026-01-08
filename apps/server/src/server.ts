@@ -29,17 +29,13 @@ import { connectDb, disconnectDb, isDbHealthy } from '@/services/db';
 import { connectRedis, disconnectRedis, isRedisHealthy } from '@/services/redis';
 import { registerWebSocketHandler, getConnectionCount } from '@/ws/handler';
 
-/**
- * Create and configure the Fastify server ***/
+/** Configures Fastify with all plugins, routes, and middleware. */
 async function buildServer() {
   const app = Fastify({
     logger: false, // We use our own Pino logger
     trustProxy: isProduction,
     disableRequestLogging: true, // We'll log requests ourselves
   });
-  /* =================== */
-  /* Core Plugins */
-  /* =================== */
   /* CORS - Configure based on environment */
   await app.register(fastifyCors, {
     origin: isDevelopment
@@ -85,9 +81,6 @@ async function buildServer() {
       clientTracking: true,
     },
   });
-  /* =================== */
-  /* Authentication Decorator */
-  /* =================== */
 
   app.decorate('authenticate', async (request: FastifyRequest, _reply: FastifyReply) => {
     try {
@@ -109,9 +102,6 @@ async function buildServer() {
       throw new AuthenticationError('Invalid or expired token');
     }
   });
-  /* =================== */
-  /* Request Logging Hook */
-  /* =================== */
 
   app.addHook('onRequest', (request, _reply, done) => {
     /* Generate trace ID for request correlation */
@@ -145,9 +135,6 @@ async function buildServer() {
     );
     done();
   });
-  /* =================== */
-  /* Global Error Handler */
-  /* =================== */
 
   app.setErrorHandler((error, request, reply) => {
     const appError = toAppError(error);
@@ -180,9 +167,6 @@ async function buildServer() {
       error: appError.toJSON(),
     });
   });
-  /* =================== */
-  /* Health Check */
-  /* =================== */
 
   app.get('/health', async (_request, reply) => {
     const [dbHealthy, redisHealthy] = await Promise.all([isDbHealthy(), isRedisHealthy()]);
@@ -206,9 +190,7 @@ async function buildServer() {
     const statusCode = status === 'healthy' ? 200 : 503;
     return reply.status(statusCode).send(health);
   });
-  /* =================== */
-  /* API Routes */
-  /* =================== */
+
   /* Prefix all API routes with /api/v1 */
   app.register(
     (api, _opts, done) => {
@@ -221,16 +203,12 @@ async function buildServer() {
   );
   /* Auth routes at root for OAuth redirects (GITHUB_CALLBACK_URL should use /auth/callback) */
   app.register(authRoutes, { prefix: '/auth' });
-  /* =================== */
-  /* WebSocket Handler */
-  /* =================== */
-
   registerWebSocketHandler(app);
 
   return app;
 }
 
-/*** Start the server with graceful shutdown ***/
+/** Starts the server and sets up graceful shutdown handlers. */
 async function start(): Promise<void> {
   let app: Awaited<ReturnType<typeof buildServer>> | null = null;
 
@@ -255,9 +233,6 @@ async function start(): Promise<void> {
       },
       `🚀 DevRadar server started at ${serverUrl}`
     );
-    /* =================== */
-    /* Graceful Shutdown */
-    /* =================== */
 
     const shutdown = async (signal: string): Promise<void> => {
       logger.info({ signal }, 'Shutdown signal received');

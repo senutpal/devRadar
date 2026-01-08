@@ -1,9 +1,7 @@
-/*** User Routes
+/**
+ * User Routes
  *
- * User profile management:
- * - GET /users/me - Get current user
- * - GET /users/:id - Get user by ID
- * - PATCH /users/me - Update current user
+ * User profile management endpoints.
  */
 
 import { UserUpdateSchema } from '@devradar/shared';
@@ -22,16 +20,13 @@ const UserIdParamsSchema = z.object({
   id: z.string().min(1, 'User ID is required'),
 });
 
-/*** Search query schema ***/
 const SearchQuerySchema = z.object({
   q: z.string().min(2, 'Search query must be at least 2 characters'),
 });
 
-/*** Valid tier values ***/
 const VALID_TIERS = ['FREE', 'PRO', 'TEAM'] as const;
 type ValidTier = (typeof VALID_TIERS)[number];
 
-/*** Transform Prisma user to DTO ***/
 function toUserDTO(user: {
   id: string;
   githubId: string;
@@ -59,12 +54,11 @@ function toUserDTO(user: {
   };
 }
 
-/*** Register user routes ***/
+/** Registers user routes on the Fastify instance. */
 export function userRoutes(app: FastifyInstance): void {
   const db = getDb();
 
-  /*** GET /users/me
-   * Get current authenticated user's profile ***/
+  // GET /me - Current user profile
   app.get(
     '/me',
     { onRequest: [app.authenticate] },
@@ -91,10 +85,8 @@ export function userRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** GET /users/:id
-   * Get user by ID (public profile) ***/
-  /*** GET /users/search
-   * Search users by username ***/
+  // GET /search - Search users by username
+  // GET /:id - User by ID
   app.get(
     '/search',
     { onRequest: [app.authenticate] },
@@ -192,8 +184,7 @@ export function userRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** PATCH /users/me
-   * Update current user's profile ***/
+  // PATCH /me - Update current user
   app.patch(
     '/me',
     { onRequest: [app.authenticate] },
@@ -228,7 +219,4 @@ export function userRoutes(app: FastifyInstance): void {
       });
     }
   );
-
-  /*** GET /users/search
-   * Search users by username ***/
 }

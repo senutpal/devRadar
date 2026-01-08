@@ -1,4 +1,5 @@
-/*** WebSocket Handler
+/**
+ *  WebSocket Handler
  *
  * Handles WebSocket connections with:
  * - JWT authentication on connection
@@ -31,8 +32,6 @@ import { getDb } from '@/services/db';
 import { setPresence, getPresences, deletePresence, getRedisSubscriber } from '@/services/redis';
 import { WsCloseCodes } from '@/ws/types';
 
-/**
- * Inbound message schema ***/
 const InboundMessageSchema = z.object({
   type: z.enum(['HEARTBEAT', 'POKE', 'SUBSCRIBE', 'UNSUBSCRIBE', 'STATUS_UPDATE']),
   payload: z.unknown(),
@@ -40,27 +39,21 @@ const InboundMessageSchema = z.object({
   correlationId: z.string().uuid().optional(),
 });
 
-/*** Heartbeat message schema ***/
 const HeartbeatMessageSchema = z.object({
   ping: z.boolean().optional(),
 });
 
-/*** Status update message schema ***/
 const StatusUpdateMessageSchema = z.object({
   status: UserStatusTypeSchema,
   activity: ActivityPayloadSchema.optional(),
 });
 
-/*** Active WebSocket connections mapped by userId ***/
 const connections = new Map<string, AuthenticatedWebSocket>();
 
-/*** Channel subscription tracking: channel -> Set of userIds subscribed ***/
 const channelSubscriptions = new Map<string, Set<string>>();
 
-/*** Flag to track if global message handler is initialized ***/
 let globalHandlerInitialized = false;
 
-/*** Send a message to a WebSocket client ***/
 function send(ws: WsSocket, type: string, payload: unknown, correlationId?: string): void {
   if (ws.readyState !== ws.OPEN) return;
 
@@ -77,18 +70,15 @@ function send(ws: WsSocket, type: string, payload: unknown, correlationId?: stri
   ws.send(JSON.stringify(message));
 }
 
-/*** Send error to client ***/
 function sendError(ws: WsSocket, code: string, message: string, correlationId?: string): void {
   const payload: ErrorPayload = { code, message };
   send(ws, 'ERROR', payload, correlationId);
 }
 
-/*** Follow type for database query ***/
 interface FollowResult {
   followingId: string;
 }
 
-/*** Get user's friend IDs (users they are following) ***/
 async function getUserFriendIds(userId: string): Promise<string[]> {
   const db = getDb();
   const follows = (await db.follow.findMany({
@@ -98,7 +88,6 @@ async function getUserFriendIds(userId: string): Promise<string[]> {
   return follows.map((f: FollowResult) => f.followingId);
 }
 
-/*** Initialize global Redis message handler (called once) ***/
 function initializeGlobalMessageHandler(): void {
   if (globalHandlerInitialized) return;
 
@@ -126,7 +115,6 @@ function initializeGlobalMessageHandler(): void {
   logger.debug('Global Redis message handler initialized');
 }
 
-/*** Subscribe to friend presence updates via Redis pub/sub ***/
 async function subscribeToFriends(ws: AuthenticatedWebSocket): Promise<void> {
   const subscriber = getRedisSubscriber();
   /* Ensure global handler is set up */
@@ -152,7 +140,6 @@ async function subscribeToFriends(ws: AuthenticatedWebSocket): Promise<void> {
   );
 }
 
-/*** Unsubscribe from friend presence channels ***/
 async function unsubscribeFromFriends(ws: AuthenticatedWebSocket): Promise<void> {
   const subscriber = getRedisSubscriber();
 
@@ -172,7 +159,6 @@ async function unsubscribeFromFriends(ws: AuthenticatedWebSocket): Promise<void>
   }
 }
 
-/*** Handle heartbeat message ***/
 function handleHeartbeat(
   ws: AuthenticatedWebSocket,
   payload: unknown,
@@ -190,7 +176,6 @@ function handleHeartbeat(
   send(ws, 'PONG', { timestamp: Date.now() }, correlationId);
 }
 
-/*** Handle status update message ***/
 async function handleStatusUpdate(
   ws: AuthenticatedWebSocket,
   payload: unknown,
@@ -213,7 +198,6 @@ async function handleStatusUpdate(
   });
 }
 
-/*** Handle poke message ***/
 function handlePoke(ws: AuthenticatedWebSocket, payload: unknown, correlationId?: string): void {
   const result = PokePayloadSchema.safeParse({
     ...(payload as Record<string, unknown>),
@@ -249,7 +233,6 @@ function handlePoke(ws: AuthenticatedWebSocket, payload: unknown, correlationId?
   }
 }
 
-/*** Handle incoming WebSocket message ***/
 async function handleMessage(ws: AuthenticatedWebSocket, data: string): Promise<void> {
   const log = createChildLogger({ userId: ws.userId });
 
@@ -299,7 +282,6 @@ async function handleMessage(ws: AuthenticatedWebSocket, data: string): Promise<
   }
 }
 
-/*** Handle connection close ***/
 async function handleClose(ws: AuthenticatedWebSocket, code: number): Promise<void> {
   const log = createChildLogger({ userId: ws.userId });
 
@@ -321,7 +303,7 @@ async function handleClose(ws: AuthenticatedWebSocket, code: number): Promise<vo
   await unsubscribeFromFriends(ws);
 }
 
-/*** Register WebSocket handler with Fastify ***/
+/** Registers the /ws WebSocket route on the Fastify instance. */
 export function registerWebSocketHandler(app: FastifyInstance): void {
   app.get(
     '/ws',
@@ -419,7 +401,7 @@ export function registerWebSocketHandler(app: FastifyInstance): void {
   logger.info('WebSocket handler registered at /ws');
 }
 
-/*** Broadcast a message to specific users ***/
+/** Sends a message to specific online users by userId. */
 export function broadcastToUsers(userIds: string[], type: string, payload: unknown): void {
   for (const userId of userIds) {
     const ws = connections.get(userId);
@@ -429,7 +411,6 @@ export function broadcastToUsers(userIds: string[], type: string, payload: unkno
   }
 }
 
-/*** Get count of active connections ***/
 export function getConnectionCount(): number {
   return connections.size;
 }

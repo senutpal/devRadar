@@ -1,8 +1,7 @@
-/*** Authentication Routes
+/**
+ * Authentication Routes
  *
- * Handles GitHub OAuth flow:
- * - GET /auth/github - Redirect to GitHub login
- * - GET /auth/callback - Handle OAuth callback
+ * GitHub OAuth flow for user authentication.
  */
 
 import { z } from 'zod';
@@ -23,7 +22,6 @@ const CallbackQuerySchema = z.object({
   error_description: z.string().optional(),
 });
 
-/*** GitHub auth query params schema ***/
 const GitHubAuthQuerySchema = z.object({
   redirect_uri: z
     .string()
@@ -39,10 +37,9 @@ const GitHubAuthQuerySchema = z.object({
     .optional(),
 });
 
-/*** Register authentication routes ***/
+/** Registers authentication routes on the Fastify instance. */
 export function authRoutes(app: FastifyInstance): void {
-  /*** GET /auth/github
-   * Redirect to GitHub OAuth authorization page ***/
+  // GET /github - Redirect to GitHub OAuth
   app.get('/github', async (request: FastifyRequest, reply: FastifyReply) => {
     /* Parse query params */
     const queryResult = GitHubAuthQuerySchema.safeParse(request.query);
@@ -73,9 +70,7 @@ export function authRoutes(app: FastifyInstance): void {
     return reply.redirect(authUrl);
   });
 
-  /*** GET /auth/callback
-   * Handle GitHub OAuth callback.
-   * Returns JWT token on success ***/
+  // GET /callback - Handle OAuth callback
   app.get(
     '/callback',
     {
@@ -164,8 +159,7 @@ export function authRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** POST /auth/refresh
-   * Refresh JWT token (requires valid token) ***/
+  // POST /refresh - Refresh JWT token
   app.post(
     '/refresh',
     { onRequest: [app.authenticate] },
@@ -187,8 +181,7 @@ export function authRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** POST /auth/logout
-   * Logout and blacklist the current token ***/
+  // POST /logout - Blacklist current token
   app.post(
     '/logout',
     { onRequest: [app.authenticate] },

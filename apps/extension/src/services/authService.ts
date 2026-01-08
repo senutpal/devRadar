@@ -1,7 +1,9 @@
-/*** Authentication Service
+/**
+ * Authentication Service
  *
  * Handles GitHub OAuth flow and token management.
- * Uses VS Code's built-in authentication API for secure token storage ***/
+ * Uses VS Code's SecretStorage API for secure credential storage.
+ */
 
 import * as vscode from 'vscode';
 
@@ -9,18 +11,17 @@ import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
 import type { UserDTO } from '@devradar/shared';
 
-/*** Authentication state ***/
+/** Current auth state for the extension. */
 export interface AuthState {
   isAuthenticated: boolean;
   user: UserDTO | null;
   token: string | null;
 }
 
-/*** Token storage key in VS Code secrets ***/
 const TOKEN_KEY = 'devradar.accessToken';
 const USER_KEY = 'devradar.user';
 
-/*** Handles authentication with the DevRadar backend ***/
+/** Manages authentication state and OAuth flow with DevRadar backend. */
 export class AuthService implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private readonly onAuthStateChangeEmitter = new vscode.EventEmitter<boolean>();
@@ -28,7 +29,7 @@ export class AuthService implements vscode.Disposable {
   private currentUser: UserDTO | null = null;
   private accessToken: string | null = null;
 
-  /*** Event that fires when auth state changes ***/
+  /** Fires when user logs in or out. */
   readonly onAuthStateChange = this.onAuthStateChangeEmitter.event;
 
   constructor(
@@ -56,7 +57,6 @@ export class AuthService implements vscode.Disposable {
     });
   }
 
-  /*** Revalidates the current session ***/
   private async revalidateSession(): Promise<void> {
     if (!this.accessToken) return;
 
@@ -67,7 +67,6 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /*** Checks if user is authenticated ***/
   async isAuthenticated(): Promise<boolean> {
     if (this.accessToken) {
       /* 
@@ -109,17 +108,19 @@ export class AuthService implements vscode.Disposable {
     return false;
   }
 
-  /*** Gets the current user ***/
   getUser(): UserDTO | null {
     return this.currentUser;
   }
 
-  /*** Gets the access token ***/
   getToken(): string | null {
     return this.accessToken;
   }
 
-  /*** Initiates the GitHub OAuth login flow ***/
+  /**
+   * Initiates GitHub OAuth login flow.
+   * Opens browser for authentication and waits for callback.
+   * @returns true if login successful, false otherwise
+   */
   async login(): Promise<boolean> {
     try {
       this.logger.info('Starting GitHub OAuth flow...');
@@ -160,7 +161,7 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /*** Logs out the current user ***/
+  /** Logs out and clears stored credentials. */
   async logout(): Promise<void> {
     this.logger.info('Logging out...');
 
@@ -183,7 +184,6 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /*** Validates a token with the server ***/
   private async validateToken(token: string): Promise<boolean> {
     try {
       const serverUrl = this.configManager.get('serverUrl');
@@ -216,7 +216,6 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /*** Fetches the user profile from the server ***/
   private async fetchUserProfile(): Promise<void> {
     try {
       const serverUrl = this.configManager.get('serverUrl');
@@ -239,7 +238,6 @@ export class AuthService implements vscode.Disposable {
     }
   }
 
-  /*** Clears all auth state ***/
   private async clearAuth(): Promise<void> {
     this.accessToken = null;
     this.currentUser = null;
@@ -254,7 +252,7 @@ export class AuthService implements vscode.Disposable {
   }
 }
 
-/*** URI Handler for OAuth callback ***/
+/** Handles vscode://devradar.devradar/auth/callback URIs from OAuth flow. */
 class DevRadarUriHandler implements vscode.UriHandler {
   private callbackResolve:
     | ((result: { success: boolean; token?: string; error?: string }) => void)
@@ -263,7 +261,6 @@ class DevRadarUriHandler implements vscode.UriHandler {
 
   constructor(private readonly logger: Logger) {}
 
-  /*** Handles incoming URI from OAuth callback ***/
   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
     this.logger.info('Received callback URI', {
       path: uri.path,
@@ -304,7 +301,6 @@ class DevRadarUriHandler implements vscode.UriHandler {
     }
   }
 
-  /*** Waits for the OAuth callback with timeout ***/
   waitForCallback(
     timeoutMs: number
   ): Promise<{ success: boolean; token?: string; error?: string }> {

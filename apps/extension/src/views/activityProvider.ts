@@ -1,13 +1,15 @@
-/*** Activity Tree View Provider
+/**
+ * Activity Tree View Provider
  *
- * Displays recent activity and achievements in the sidebar ***/
+ * Displays recent activity events and achievements in the sidebar.
+ */
 
 import * as vscode from 'vscode';
 
 import type { WebSocketClient } from '../services/wsClient';
 import type { Logger } from '../utils/logger';
 
-/*** Activity event type ***/
+/** Activity event shown in the sidebar. */
 export interface ActivityEvent {
   id: string;
   type: 'friend_online' | 'friend_offline' | 'poke' | 'achievement' | 'conflict';
@@ -18,7 +20,7 @@ export interface ActivityEvent {
   username?: string;
 }
 
-/*** Tree item representing an activity event ***/
+/** Tree item representing an activity event. */
 class ActivityTreeItem extends vscode.TreeItem {
   constructor(public readonly activity: ActivityEvent) {
     super(activity.title, vscode.TreeItemCollapsibleState.None);
@@ -30,7 +32,6 @@ class ActivityTreeItem extends vscode.TreeItem {
     this.contextValue = `activity-${activity.type}`;
   }
 
-  /*** Gets the appropriate icon for the activity type ***/
   private getIcon(): vscode.ThemeIcon {
     switch (this.activity.type) {
       case 'friend_online':
@@ -48,7 +49,6 @@ class ActivityTreeItem extends vscode.TreeItem {
     }
   }
 
-  /*** Formats timestamp to relative time ***/
   private formatTime(timestamp: number): string {
     const now = Date.now();
     const diff = now - timestamp;
@@ -66,13 +66,13 @@ class ActivityTreeItem extends vscode.TreeItem {
       return `${String(hours)}h ago`;
     }
 
-    /*** Format as date ***/
+    /* Format as date */
     const date = new Date(timestamp);
     return date.toLocaleDateString();
   }
 }
 
-/*** Activity tree data provider ***/
+/** Tree data provider for activity events. */
 export class ActivityProvider
   implements vscode.TreeDataProvider<ActivityTreeItem>, vscode.Disposable
 {
@@ -98,12 +98,10 @@ export class ActivityProvider
     );
   }
 
-  /*** Gets tree item for element ***/
   getTreeItem(element: ActivityTreeItem): vscode.TreeItem {
     return element;
   }
 
-  /*** Gets children for element ***/
   getChildren(element?: ActivityTreeItem): ActivityTreeItem[] {
     /* Only root level has children */
     if (element) {
@@ -115,7 +113,6 @@ export class ActivityProvider
       .map((activity) => new ActivityTreeItem(activity));
   }
 
-  /*** Handles incoming WebSocket messages ***/
   private handleMessage(message: { type: string; payload: unknown }): void {
     let activity: ActivityEvent | null = null;
 
@@ -139,7 +136,6 @@ export class ActivityProvider
     }
   }
 
-  /*** Creates activity for friend status change ***/
   private createFriendStatusActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -177,7 +173,6 @@ export class ActivityProvider
     return event;
   }
 
-  /*** Creates activity for poke ***/
   private createPokeActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -210,7 +205,6 @@ export class ActivityProvider
     return event;
   }
 
-  /*** Creates activity for achievement ***/
   private createAchievementActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -227,7 +221,6 @@ export class ActivityProvider
     };
   }
 
-  /*** Creates activity for conflict alert ***/
   private createConflictActivity(payload: unknown): ActivityEvent | null {
     if (typeof payload !== 'object' || payload === null) {
       return null;
@@ -244,7 +237,6 @@ export class ActivityProvider
     };
   }
 
-  /*** Adds an activity to the list ***/
   private addActivity(activity: ActivityEvent): void {
     this.activities.unshift(activity);
 
@@ -256,13 +248,11 @@ export class ActivityProvider
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /*** Clears all activities ***/
   clear(): void {
     this.activities = [];
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /*** Refreshes the tree view ***/
   refresh(): void {
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }

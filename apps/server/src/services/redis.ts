@@ -1,9 +1,8 @@
-/*** Redis Service
+/**
+ * Redis Service
  *
- * ioredis client with:
- * - Separate clients for commands and pub/sub (required by Redis protocol)
- * - Connection health monitoring
- * - Graceful disconnect
+ * ioredis client with separate clients for commands and pub/sub,
+ * connection health monitoring, and graceful disconnect.
  */
 
 import { PRESENCE_TTL_SECONDS, REDIS_KEYS } from '@devradar/shared';
@@ -14,12 +13,11 @@ import { logger } from '@/lib/logger';
 
 /**
  * Redis client instances.
- * We need separate clients for regular commands and pub/sub ***/
+ * We need separate clients for regular commands and pub/sub **/
 let commandClient: Redis | null = null;
 let subscribeClient: Redis | null = null;
 let publishClient: Redis | null = null;
 
-/*** Common Redis options for all clients ***/
 const commonOptions: RedisOptions = {
   maxRetriesPerRequest: 3,
   retryStrategy: (times: number) => {
@@ -34,7 +32,6 @@ const commonOptions: RedisOptions = {
   lazyConnect: true,
 };
 
-/*** Create a Redis client with event handlers ***/
 function createClient(name: string): Redis {
   const client = new Redis(env.REDIS_URL, {
     ...commonOptions,
@@ -60,27 +57,23 @@ function createClient(name: string): Redis {
   return client;
 }
 
-/*** Get the command Redis client (for SET, GET, etc.) ***/
 export function getRedis(): Redis {
   commandClient ??= createClient('command');
   return commandClient;
 }
 
-/*** Get the subscribe Redis client (for subscribing to channels).
- * Must be a separate client from command client ***/
+/** Returns dedicated client for subscribing to channels. */
 export function getRedisSubscriber(): Redis {
   subscribeClient ??= createClient('subscriber');
   return subscribeClient;
 }
 
-/*** Get the publish Redis client (for publishing to channels) ***/
 export function getRedisPublisher(): Redis {
   publishClient ??= createClient('publisher');
   return publishClient;
 }
 
-/*** Connect all Redis clients.
- * Call this during server startup ***/
+/** Connect all Redis clients (call during server startup). */
 export async function connectRedis(): Promise<void> {
   try {
     const cmd = getRedis();
@@ -96,8 +89,7 @@ export async function connectRedis(): Promise<void> {
   }
 }
 
-/*** Disconnect all Redis clients.
- * Call this during graceful shutdown ***/
+/** Disconnect all Redis clients (call during graceful shutdown). */
 export async function disconnectRedis(): Promise<void> {
   const clients = [
     { name: 'command', client: commandClient },
@@ -130,7 +122,7 @@ export async function disconnectRedis(): Promise<void> {
   }
 }
 
-/*** Health check - verify Redis connectivity ***/
+/** Health check - verify Redis connectivity. */
 export async function isRedisHealthy(): Promise<boolean> {
   try {
     const redis = getRedis();
@@ -140,9 +132,6 @@ export async function isRedisHealthy(): Promise<boolean> {
     return false;
   }
 }
-/* =================== */
-/* Presence Helpers */
-/* =================== */
 
 interface PresenceData {
   userId: string;
@@ -246,9 +235,6 @@ export async function getPresences(userIds: string[]): Promise<Map<string, Prese
 
   return presenceMap;
 }
-/* =================== */
-/* Token Blacklist Helpers */
-/* =================== */
 
 const TOKEN_BLACKLIST_PREFIX = 'blacklist:';
 

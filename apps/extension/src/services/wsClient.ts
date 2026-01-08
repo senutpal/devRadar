@@ -23,16 +23,22 @@ import type { AuthService } from './authService';
 import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
 
-/*** WebSocket connection states ***/
+/** WebSocket connection states. */
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
-/*** Queued message for offline resilience ***/
 interface QueuedMessage {
   message: WebSocketMessage;
   timestamp: number;
 }
 
-/*** WebSocket client with reconnection and message handling ***/
+/**
+ * WebSocket client with automatic reconnection and message queuing.
+ *
+ * Features:
+ * - Exponential backoff with jitter for reconnection
+ * - Message queue for offline resilience
+ * - Application-level heartbeat for connection health
+ */
 export class WebSocketClient implements vscode.Disposable {
   private ws: WebSocket | null = null;
   private connectionState: ConnectionState = 'disconnected';
@@ -48,10 +54,10 @@ export class WebSocketClient implements vscode.Disposable {
   private readonly onMessageEmitter = new vscode.EventEmitter<WebSocketMessage>();
   private readonly onConnectionStateChangeEmitter = new vscode.EventEmitter<ConnectionState>();
 
-  /*** Event that fires when a message is received ***/
+  /** Fires when a message is received from server. */
   readonly onMessage = this.onMessageEmitter.event;
 
-  /*** Event that fires when connection state changes ***/
+  /** Fires when connection state changes. */
   readonly onConnectionStateChange = this.onConnectionStateChangeEmitter.event;
 
   constructor(
@@ -62,17 +68,14 @@ export class WebSocketClient implements vscode.Disposable {
     this.disposables.push(this.onMessageEmitter, this.onConnectionStateChangeEmitter);
   }
 
-  /*** Gets the current connection state ***/
   getConnectionState(): ConnectionState {
     return this.connectionState;
   }
 
-  /*** Checks if connected ***/
   isConnected(): boolean {
     return this.connectionState === 'connected' && this.ws?.readyState === WebSocket.OPEN;
   }
 
-  /*** Connects to the WebSocket server ***/
   connect(): void {
     if (this.connectionState === 'connecting' || this.connectionState === 'connected') {
       this.logger.debug('Already connected or connecting');
@@ -99,7 +102,6 @@ export class WebSocketClient implements vscode.Disposable {
     }
   }
 
-  /*** Disconnects from the WebSocket server ***/
   disconnect(): void {
     this.logger.info('Disconnecting from WebSocket server...');
     this.cancelReconnect();
@@ -114,7 +116,6 @@ export class WebSocketClient implements vscode.Disposable {
     this.setConnectionState('disconnected');
   }
 
-  /*** Sends a message to the server ***/
   send(type: MessageType, payload: unknown): void {
     const message: WebSocketMessage = {
       type,
@@ -135,7 +136,6 @@ export class WebSocketClient implements vscode.Disposable {
     }
   }
 
-  /*** Sends a status update ***/
   sendStatusUpdate(status: UserStatusType, activity?: ActivityPayload): void {
     this.send('STATUS_UPDATE', {
       userId: this.authService.getUser()?.id,
@@ -145,7 +145,6 @@ export class WebSocketClient implements vscode.Disposable {
     });
   }
 
-  /*** Sends a poke to another user ***/
   sendPoke(toUserId: string, message?: string): void {
     const payload: PokePayload = {
       fromUserId: this.authService.getUser()?.id ?? '',
@@ -157,7 +156,6 @@ export class WebSocketClient implements vscode.Disposable {
     this.send('POKE', payload);
   }
 
-  /*** Sets up WebSocket event handlers ***/
   private setupWebSocketHandlers(): void {
     if (!this.ws) return;
 
@@ -222,7 +220,6 @@ export class WebSocketClient implements vscode.Disposable {
     };
   }
 
-  /*** Starts the heartbeat interval ***/
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
@@ -242,7 +239,6 @@ export class WebSocketClient implements vscode.Disposable {
     }, HEARTBEAT_INTERVAL_MS);
   }
 
-  /*** Stops the heart beat interval ***/
   private stopHeartbeat(): void {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -250,7 +246,7 @@ export class WebSocketClient implements vscode.Disposable {
     }
   }
 
-  /***  Schedules a reconnection attempt with exponential backoff and jitter ***/
+  /** Schedules reconnection with exponential backoff and jitter. */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= WS_RECONNECT_CONFIG.maxAttempts) {
       this.logger.error('Max reconnection attempts reached');
@@ -284,7 +280,6 @@ export class WebSocketClient implements vscode.Disposable {
     }, delay);
   }
 
-  /*** Cancels any pending reconnection ***/
   private cancelReconnect(): void {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -293,7 +288,6 @@ export class WebSocketClient implements vscode.Disposable {
     this.reconnectAttempts = 0;
   }
 
-  /*** Queues a message for later delivery ***/
   private queueMessage(message: WebSocketMessage): void {
     /* Prune old messages */
     const now = Date.now();
@@ -313,7 +307,6 @@ export class WebSocketClient implements vscode.Disposable {
     }
   }
 
-  /*** Flushes the message queue after reconnection. ***/
   private flushMessageQueue(): void {
     if (this.messageQueue.length === 0) return;
 
@@ -337,7 +330,6 @@ export class WebSocketClient implements vscode.Disposable {
     this.messageQueue = [];
   }
 
-  /*** Updates and emits connection state. ***/
   private setConnectionState(state: ConnectionState): void {
     if (this.connectionState !== state) {
       this.connectionState = state;

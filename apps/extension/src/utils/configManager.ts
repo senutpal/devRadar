@@ -1,11 +1,13 @@
-/*** Configuration Manager
+/**
+ * Configuration Manager
  *
- * Provides type-safe access to extension configuration with caching ***/
+ * Type-safe access to extension settings with change notification.
+ */
 
 import { minimatch } from 'minimatch';
 import * as vscode from 'vscode';
 
-/*** Extension configuration schema ***/
+/** Extension configuration schema. */
 export interface DevRadarConfig {
   serverUrl: string;
   wsUrl: string;
@@ -21,7 +23,6 @@ export interface DevRadarConfig {
   showStatusBarItem: boolean;
 }
 
-/*** Default configuration values ***/
 const DEFAULT_CONFIG: DevRadarConfig = {
   /* Production */
   serverUrl: 'https://wispy-netti-devradar-c95bfbd3.koyeb.app',
@@ -50,13 +51,13 @@ const DEFAULT_CONFIG: DevRadarConfig = {
   showStatusBarItem: true,
 };
 
-/*** Manages extension configuration with caching and type safety ***/
+/** Provides type-safe access to extension configuration with caching. */
 export class ConfigManager implements vscode.Disposable {
   private cache: DevRadarConfig;
   private readonly disposables: vscode.Disposable[] = [];
   private readonly onConfigChangeEmitter = new vscode.EventEmitter<DevRadarConfig>();
 
-  /*** Event that fires when configuration changes ***/
+  /** Fires when any configuration value changes. */
   readonly onConfigChange = this.onConfigChangeEmitter.event;
 
   constructor() {
@@ -65,17 +66,14 @@ export class ConfigManager implements vscode.Disposable {
     this.disposables.push(this.onConfigChangeEmitter);
   }
 
-  /*** Gets a specific configuration value ***/
   get<K extends keyof DevRadarConfig>(key: K): DevRadarConfig[K] {
     return this.cache[key];
   }
 
-  /*** Gets all configuration values ***/
   getAll(): Readonly<DevRadarConfig> {
     return { ...this.cache };
   }
 
-  /*** Updates a configuration value ***/
   async update<K extends keyof DevRadarConfig>(
     key: K,
     value: DevRadarConfig[K],
@@ -87,13 +85,11 @@ export class ConfigManager implements vscode.Disposable {
     this.onConfigChangeEmitter.fire(this.cache);
   }
 
-  /*** Reloads configuration from VS Code settings ***/
   reload(): void {
     this.cache = this.loadConfig();
     this.onConfigChangeEmitter.fire(this.cache);
   }
 
-  /*** Loads configuration from VS Code settings with defaults ***/
   private loadConfig(): DevRadarConfig {
     const config = vscode.workspace.getConfiguration('devradar');
 
@@ -117,18 +113,15 @@ export class ConfigManager implements vscode.Disposable {
     };
   }
 
-  /*** Checks if a file matches any blacklisted pattern ***/
   isFileBlacklisted(fileName: string): boolean {
     const patterns = this.cache.blacklistedFiles;
     return patterns.some((pattern) => this.matchGlob(fileName, pattern));
   }
 
-  /*** Checks if a workspace is blacklisted ***/
   isWorkspaceBlacklisted(workspaceName: string): boolean {
     return this.cache.blacklistedWorkspaces.includes(workspaceName);
   }
 
-  /*** Simple glob pattern matching using minimatch ***/
   private matchGlob(text: string, pattern: string): boolean {
     return minimatch(text, pattern, { dot: true });
   }

@@ -14,14 +14,14 @@ import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
 import type { PublicUserDTO, FriendRequestDTO, PaginatedResponse } from '@devradar/shared';
 
-/*** Events emitted by FriendRequestService ***/
+/** Events emitted by FriendRequestService. */
 export interface FriendRequestEvents {
   onRequestReceived: vscode.Event<FriendRequestDTO>;
   onRequestAccepted: vscode.Event<{ requestId: string; friend: PublicUserDTO }>;
   onRequestsChanged: vscode.Event<void>;
 }
 
-/*** Friend Request Service ***/
+/** Manages friend requests via HTTP and emits events from WebSocket. */
 export class FriendRequestService implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
 
@@ -48,7 +48,6 @@ export class FriendRequestService implements vscode.Disposable {
     );
   }
 
-  /*** Get the Authorization header ***/
   private getAuthHeader(): Record<string, string> {
     const token = this.authService.getToken();
     if (!token) {
@@ -57,15 +56,12 @@ export class FriendRequestService implements vscode.Disposable {
     return { Authorization: `Bearer ${token}` };
   }
 
-  /*** Get base server URL ***/
   private getServerUrl(): string {
     return this.configManager.get('serverUrl');
   }
 
-  /*** Default timeout for fetch requests in milliseconds ***/
   private static readonly DEFAULT_TIMEOUT = 10_000;
 
-  /*** Fetch with timeout using AbortController ***/
   private async fetchWithTimeout(
     url: string,
     options: RequestInit = {},
@@ -87,7 +83,10 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Search for users by query ***/
+  /**
+   * Searches for users by username or display name.
+   * @param query - Search term (minimum 2 characters)
+   */
   async searchUsers(query: string): Promise<PublicUserDTO[]> {
     if (query.length < 2) {
       return [];
@@ -113,7 +112,10 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Send a friend request to a user ***/
+  /**
+   * Sends a friend request to another user.
+   * @throws Error if request fails or user not found
+   */
   async sendRequest(toUserId: string): Promise<FriendRequestDTO> {
     try {
       const response = await this.fetchWithTimeout(
@@ -150,7 +152,6 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Get incoming friend requests ***/
   async getIncomingRequests(page = 1, limit = 20): Promise<PaginatedResponse<FriendRequestDTO>> {
     try {
       const response = await this.fetchWithTimeout(
@@ -171,7 +172,6 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Get outgoing friend requests ***/
   async getOutgoingRequests(page = 1, limit = 20): Promise<PaginatedResponse<FriendRequestDTO>> {
     try {
       const response = await this.fetchWithTimeout(
@@ -192,7 +192,6 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Get pending request count (for badge) ***/
   async getPendingCount(): Promise<number> {
     try {
       const response = await this.fetchWithTimeout(
@@ -214,7 +213,6 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Accept a friend request ***/
   async acceptRequest(requestId: string): Promise<void> {
     try {
       const response = await this.fetchWithTimeout(
@@ -245,7 +243,6 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Reject a friend request ***/
   async rejectRequest(requestId: string): Promise<void> {
     try {
       const response = await this.fetchWithTimeout(
@@ -276,7 +273,6 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Cancel an outgoing friend request ***/
   async cancelRequest(requestId: string): Promise<void> {
     try {
       const response = await this.fetchWithTimeout(
@@ -307,7 +303,7 @@ export class FriendRequestService implements vscode.Disposable {
     }
   }
 
-  /*** Handle WebSocket message for friend request received ***/
+  /** Called by extension when FRIEND_REQUEST_RECEIVED WebSocket message arrives. */
   handleFriendRequestReceived(payload: { request: FriendRequestDTO }): void {
     this.logger.info('Friend request received', { from: payload.request.fromUser.username });
     this.onRequestReceivedEmitter.fire(payload.request);
@@ -329,7 +325,7 @@ export class FriendRequestService implements vscode.Disposable {
       });
   }
 
-  /*** Handle WebSocket message for friend request accepted ***/
+  /** Called by extension when FRIEND_REQUEST_ACCEPTED WebSocket message arrives. */
   handleFriendRequestAccepted(payload: { requestId: string; friend: PublicUserDTO }): void {
     this.logger.info('Friend request accepted', { friend: payload.friend.username });
     this.onRequestAcceptedEmitter.fire(payload);
@@ -340,7 +336,7 @@ export class FriendRequestService implements vscode.Disposable {
     void vscode.window.showInformationMessage(`${friendName} accepted your friend request! 🎉`);
   }
 
-  /*** Unfriend a user by removing the friendship ***/
+  /** Removes a friend (deletes the follow relationship). */
   async unfriend(userId: string): Promise<void> {
     try {
       const response = await this.fetchWithTimeout(

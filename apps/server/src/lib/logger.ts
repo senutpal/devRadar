@@ -1,10 +1,8 @@
-/*** Structured Logger
+/**
+ * Structured Logger
  *
- * Pino-based logger with:
- * - JSON structured logging for production
- * - Pretty printing for development
- * - Sensitive data redaction
- * - Correlation ID support
+ * Pino-based logger with JSON output, pretty printing in dev,
+ * sensitive data redaction, and correlation ID support.
  */
 
 import pino, { type Logger } from 'pino';
@@ -32,7 +30,6 @@ const REDACT_PATHS = [
   'headers.cookie',
 ];
 
-/*** Create the Pino logger instance ***/
 function createLogger(): Logger {
   const options: pino.LoggerOptions = {
     level: env.LOG_LEVEL,
@@ -67,8 +64,7 @@ function createLogger(): Logger {
   return pino(options);
 }
 
-/*** Application logger instance.
- * Use this for all logging throughout the application ***/
+/** Application logger singleton. */
 export const logger = createLogger();
 
 /*** Create a child logger with additional context.

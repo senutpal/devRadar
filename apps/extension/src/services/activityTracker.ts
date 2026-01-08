@@ -16,7 +16,7 @@ import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
 import type { ActivityPayload, UserStatusType, Intensity } from '@devradar/shared';
 
-/*** Tracks and reports user coding activity ***/
+/** Tracks and reports user coding activity to the server. */
 export class ActivityTracker implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private isTracking = false;
@@ -46,7 +46,7 @@ export class ActivityTracker implements vscode.Disposable {
     private readonly logger: Logger
   ) {}
 
-  /*** Starts activity tracking ***/
+  /** Starts activity tracking and heartbeat. */
   start(): void {
     if (this.isTracking) {
       return;
@@ -70,7 +70,7 @@ export class ActivityTracker implements vscode.Disposable {
     this.sendStatusUpdate();
   }
 
-  /*** Stops activity tracking ***/
+  /** Stops tracking and sends offline status. */
   stop(): void {
     if (!this.isTracking) {
       return;
@@ -93,7 +93,7 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Reconfigures the tracker after settings change ***/
+  /** Restarts timers after configuration change. */
   reconfigure(): void {
     if (this.isTracking) {
       this.stopHeartbeat();
@@ -103,19 +103,18 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Sets a manual status override ***/
+  /** Sets a manual status (overrides automatic detection). */
   setManualStatus(status: UserStatusType): void {
     this.manualStatus = status;
     this.sendStatusUpdate();
   }
 
-  /*** Clears the manual status override ***/
   clearManualStatus(): void {
     this.manualStatus = null;
     this.sendStatusUpdate();
   }
 
-  /*** Forces an immediate status update ***/
+  /** Sends current status to server (deduplicates automatically). */
   sendStatusUpdate(): void {
     if (!this.isTracking) {
       return;
@@ -134,7 +133,6 @@ export class ActivityTracker implements vscode.Disposable {
     this.logger.debug('Sent status update', { status, activity: activity?.fileName });
   }
 
-  /*** Registers VS Code event listeners ***/
   private registerEventListeners(): void {
     /* Active editor change - immediate update */
     this.disposables.push(
@@ -200,7 +198,6 @@ export class ActivityTracker implements vscode.Disposable {
     );
   }
 
-  /*** Records that activity occurred ***/
   private recordActivity(): void {
     this.lastActivityTime = Date.now();
 
@@ -211,7 +208,6 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Records a keystroke for intensity calculation ***/
   private recordKeystroke(): void {
     const now = Date.now();
 
@@ -224,7 +220,6 @@ export class ActivityTracker implements vscode.Disposable {
     this.keystrokeCount++;
   }
 
-  /*** Schedules a status update with optional debouncing ***/
   private scheduleUpdate(immediate: boolean): void {
     if (this.pendingUpdate) {
       clearTimeout(this.pendingUpdate);
@@ -240,7 +235,6 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Starts the heartbeat interval ***/
   private startHeartbeat(): void {
     const interval = this.configManager.get('heartbeatInterval');
 
@@ -251,7 +245,6 @@ export class ActivityTracker implements vscode.Disposable {
     }, interval);
   }
 
-  /*** Stops the heartbeat interval ***/
   private stopHeartbeat(): void {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -259,7 +252,6 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Starts idle detection ***/
   private startIdleDetection(): void {
     const checkInterval = 30_000; /* Check every 30 seconds */
 
@@ -268,7 +260,6 @@ export class ActivityTracker implements vscode.Disposable {
     }, checkInterval);
   }
 
-  /*** Stops idle detection ***/
   private stopIdleDetection(): void {
     if (this.idleTimeout) {
       clearInterval(this.idleTimeout);
@@ -276,7 +267,6 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Checks if user is idle and updates status ***/
   private checkIdle(): void {
     const idleThreshold = this.configManager.get('idleTimeout');
     const timeSinceActivity = Date.now() - this.lastActivityTime;
@@ -288,7 +278,6 @@ export class ActivityTracker implements vscode.Disposable {
     }
   }
 
-  /*** Builds the activity payload from current editor state ***/
   private buildActivityPayload(): ActivityPayload | undefined {
     /* Check privacy mode */
     if (this.configManager.get('privacyMode')) {
@@ -346,7 +335,6 @@ export class ActivityTracker implements vscode.Disposable {
     return activityResult;
   }
 
-  /*** Gets the file name, respecting privacy settings ***/
   private getFileName(document: vscode.TextDocument): string | undefined {
     if (document.isUntitled) {
       return 'Untitled';
@@ -362,12 +350,10 @@ export class ActivityTracker implements vscode.Disposable {
     return parts[parts.length - 1];
   }
 
-  /*** Gets the programming language ***/
   private getLanguage(document: vscode.TextDocument): string | undefined {
     return document.languageId;
   }
 
-  /*** Gets the project name from workspace folder ***/
   private getProjectName(): string | undefined {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -387,17 +373,15 @@ export class ActivityTracker implements vscode.Disposable {
     return workspaceFolders[0]?.name;
   }
 
-  /*** Gets the workspace name ***/
   private getWorkspaceName(): string | undefined {
     return vscode.workspace.name;
   }
 
-  /*** Gets the session duration in seconds ***/
   private getSessionDuration(): number {
     return Math.floor((Date.now() - this.sessionStartTime) / 1000);
   }
 
-  /*** Calculates coding intensity based on keystroke velocity ***/
+  /** Maps keystroke velocity to a 0-100 intensity score. */
   private calculateIntensity(): Intensity {
     const now = Date.now();
     const windowDuration = now - this.keystrokeWindowStart;

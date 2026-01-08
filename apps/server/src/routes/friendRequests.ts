@@ -20,12 +20,10 @@ import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
 import { broadcastToUsers } from '@/ws/handler';
 
-/*** Request ID params schema ***/
 const RequestIdParamsSchema = z.object({
   id: z.string().min(1, 'Request ID is required'),
 });
 
-/*** Type for friend request with user details ***/
 interface FriendRequestWithUsers {
   id: string;
   fromId: string;
@@ -46,7 +44,6 @@ interface FriendRequestWithUsers {
   };
 }
 
-/*** Convert user to PublicUserDTO ***/
 function toPublicUserDTO(user: {
   id: string;
   username: string;
@@ -61,7 +58,6 @@ function toPublicUserDTO(user: {
   };
 }
 
-/*** Convert friend request to DTO ***/
 function toFriendRequestDTO(request: FriendRequestWithUsers): FriendRequestDTO {
   return {
     id: request.id,
@@ -72,12 +68,11 @@ function toFriendRequestDTO(request: FriendRequestWithUsers): FriendRequestDTO {
   };
 }
 
-/*** Register friend request routes ***/
+/** Registers all friend request routes on the Fastify instance. */
 export function friendRequestRoutes(app: FastifyInstance): void {
   const db = getDb();
 
-  /*** POST /friend-requests
-   * Send a friend request to another user ***/
+  // POST / - Send friend request
   app.post(
     '/',
     { onRequest: [app.authenticate] },
@@ -197,8 +192,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** GET /friend-requests/incoming
-   * List pending incoming friend requests ***/
+  // GET /incoming - List pending incoming requests
   app.get(
     '/incoming',
     { onRequest: [app.authenticate] },
@@ -238,8 +232,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** GET /friend-requests/outgoing
-   * List pending outgoing friend requests ***/
+  // GET /outgoing - List pending outgoing requests
   app.get(
     '/outgoing',
     { onRequest: [app.authenticate] },
@@ -279,8 +272,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** POST /friend-requests/:id/accept
-   * Accept a friend request ***/
+  // POST /:id/accept - Accept a friend request
   app.post(
     '/:id/accept',
     { onRequest: [app.authenticate] },
@@ -325,8 +317,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** POST /friend-requests/:id/reject
-   * Reject a friend request ***/
+  // POST /:id/reject - Reject a friend request
   app.post(
     '/:id/reject',
     { onRequest: [app.authenticate] },
@@ -372,8 +363,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** DELETE /friend-requests/:id
-   * Cancel an outgoing friend request ***/
+  // DELETE /:id - Cancel outgoing request
   app.delete(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -416,8 +406,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** GET /friend-requests/count
-   * Get count of pending incoming requests (for badge) ***/
+  // GET /count - Pending incoming count (for badge)
   app.get(
     '/count',
     { onRequest: [app.authenticate] },
@@ -435,7 +424,7 @@ export function friendRequestRoutes(app: FastifyInstance): void {
   );
 }
 
-/*** Internal function to accept a friend request ***/
+/** Internal helper to accept a request and create follow relationships. */
 async function acceptRequestInternal(
   db: ReturnType<typeof getDb>,
   friendRequest: FriendRequestWithUsers,

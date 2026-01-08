@@ -1,16 +1,16 @@
-/*** User status indicating online presence ***/
+/** User presence status: online, idle, do-not-disturb, or offline. */
 export type UserStatusType = 'online' | 'idle' | 'dnd' | 'offline';
 
-/*** User subscription tier ***/
+/** Subscription tier for feature gating. */
 export type TierType = 'FREE' | 'PRO' | 'TEAM';
 
-/*** Team member role ***/
+/** Team member permission level. */
 export type RoleType = 'OWNER' | 'ADMIN' | 'MEMBER';
 
-/*** Friend request status ***/
+/** State of a friend request. */
 export type FriendRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
 
-/*** WebSocket message types ***/
+/** All WebSocket message types used in client-server communication. */
 export type MessageType =
   | 'AUTH'
   | 'AUTH_SUCCESS'
@@ -26,18 +26,16 @@ export type MessageType =
   | 'FRIEND_REQUEST_RECEIVED'
   | 'FRIEND_REQUEST_ACCEPTED';
 
-/*** Unix timestamp in milliseconds (value returned by Date.now()) ***/
+/** Unix timestamp in milliseconds (from Date.now()). */
 export type EpochMillis = number;
 
-/*** Intensity value constrained to 0-100 range.
- * Represents coding intensity based on keystroke velocity.
- * @min 0
- * @max 100
+/**
+ * Coding intensity score (0-100) based on keystroke velocity.
+ * Uses branded type for type safety.
  */
 export type Intensity = number & { readonly __brand: 'Intensity' };
 
-/**
- * Activity payload representing coding activity ***/
+/** Coding activity payload sent with status updates. */
 export interface ActivityPayload {
   /** Current file name (can be masked for privacy) */
   fileName?: string;
@@ -49,15 +47,11 @@ export interface ActivityPayload {
   workspace?: string;
   /** Session duration in seconds */
   sessionDuration: number;
-  /*** Coding intensity (keystroke velocity).
-   * @min 0
-   * @max 100
-   */
+  /** Coding intensity (0-100 based on keystroke velocity). */
   intensity?: Intensity;
 }
 
-/**
- * User presence status ***/
+/** User presence status with optional activity. */
 export interface UserStatus {
   userId: string;
   status: UserStatusType;
@@ -66,7 +60,7 @@ export interface UserStatus {
   updatedAt: EpochMillis;
 }
 
-/*** WebSocket message envelope ***/
+/** WebSocket message envelope with metadata. */
 export interface WebSocketMessage<T = unknown> {
   type: MessageType;
   payload: T;
@@ -76,7 +70,7 @@ export interface WebSocketMessage<T = unknown> {
   correlationId?: string;
 }
 
-/*** User profile data transfer object ***/
+/** Full user profile (returned from /users/me). */
 export interface UserDTO {
   id: string;
   githubId: string;
@@ -89,7 +83,7 @@ export interface UserDTO {
   createdAt: string;
 }
 
-/*** Minimal public user info for friend requests and search results ***/
+/** Minimal user info for friend lists and search results. */
 export interface PublicUserDTO {
   id: string;
   username: string;
@@ -97,7 +91,7 @@ export interface PublicUserDTO {
   avatarUrl: string | null;
 }
 
-/*** Friend request data transfer object ***/
+/** Friend request with sender and receiver details. */
 export interface FriendRequestDTO {
   id: string;
   fromUser: PublicUserDTO;
@@ -107,25 +101,25 @@ export interface FriendRequestDTO {
   createdAt: string;
 }
 
-/*** WebSocket payload: Friend request received ***/
+/** Payload for FRIEND_REQUEST_RECEIVED WebSocket message. */
 export interface FriendRequestReceivedPayload {
   request: FriendRequestDTO;
 }
 
-/*** WebSocket payload: Friend request accepted ***/
+/** Payload for FRIEND_REQUEST_ACCEPTED WebSocket message. */
 export interface FriendRequestAcceptedPayload {
   requestId: string;
   friend: PublicUserDTO;
 }
 
-/*** Poke request payload ***/
+/** Poke action between friends. */
 export interface PokePayload {
   fromUserId: string;
   toUserId: string;
   message?: string;
 }
 
-/*** Conflict alert payload for merge conflict radar ***/
+/** Alert when multiple users edit the same file. */
 export interface ConflictAlertPayload {
   fileHash: string;
   /** Array of user IDs currently editing this file */
@@ -133,14 +127,14 @@ export interface ConflictAlertPayload {
   teamId: string;
 }
 
-/*** API error response ***/
+/** Standard API error response format. */
 export interface ApiError {
   code: string;
   message: string;
   details?: Record<string, unknown>;
 }
 
-/*** Paginated response wrapper ***/
+/** Wrapper for paginated list responses. */
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {

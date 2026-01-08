@@ -1,6 +1,7 @@
-/*** Friend Requests Tree View Provider
+/**
+ * Friend Requests Tree View Provider
  *
- * Displays pending friend requests in the sidebar with accept/reject/cancel actions
+ * Displays pending friend requests with accept/reject/cancel actions.
  */
 
 import * as vscode from 'vscode';
@@ -9,7 +10,7 @@ import type { FriendRequestService } from '../services/friendRequestService';
 import type { Logger } from '../utils/logger';
 import type { FriendRequestDTO } from '@devradar/shared';
 
-/*** Tree item representing a friend request ***/
+/** Tree item representing a friend request. */
 class FriendRequestTreeItem extends vscode.TreeItem {
   constructor(
     public readonly request: FriendRequestDTO,
@@ -50,7 +51,7 @@ class FriendRequestTreeItem extends vscode.TreeItem {
   }
 }
 
-/*** Section header for organizing requests ***/
+/** Section header for organizing requests by direction. */
 class SectionTreeItem extends vscode.TreeItem {
   constructor(
     public readonly section: 'incoming' | 'outgoing',
@@ -72,7 +73,7 @@ class SectionTreeItem extends vscode.TreeItem {
 
 type FriendRequestsTreeItem = FriendRequestTreeItem | SectionTreeItem;
 
-/*** Friend Requests Tree Data Provider ***/
+/** Tree data provider for friend requests. */
 export class FriendRequestsProvider
   implements vscode.TreeDataProvider<FriendRequestsTreeItem>, vscode.Disposable
 {
@@ -129,7 +130,6 @@ export class FriendRequestsProvider
     return [];
   }
 
-  /*** Refresh friend requests from the server ***/
   async refresh(): Promise<void> {
     if (this.isLoading) {
       return;
@@ -159,14 +159,12 @@ export class FriendRequestsProvider
     }
   }
 
-  /*** Clear all requests (called on logout) ***/
   clear(): void {
     this.incomingRequests = [];
     this.outgoingRequests = [];
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /*** Get pending incoming count (for badge) ***/
   getPendingCount(): number {
     return this.incomingRequests.length;
   }

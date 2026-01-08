@@ -1,14 +1,13 @@
-/*** Presence TTL in seconds (60 seconds).
- * Set to 2x HEARTBEAT_INTERVAL to tolerate missed heartbeats ***/
+/** Presence TTL in seconds. Set to 2x heartbeat interval to tolerate missed beats. */
 export const PRESENCE_TTL_SECONDS = 60;
 
-/*** Heartbeat interval in milliseconds (30 seconds) ***/
+/** Heartbeat interval (30 seconds). */
 export const HEARTBEAT_INTERVAL_MS = 30_000;
 
-/*** Idle threshold in milliseconds (5 minutes) ***/
+/** Idle threshold (5 minutes of no activity). */
 export const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
 
-/*** WebSocket reconnection configuration ***/
+/** WebSocket reconnection with exponential backoff. */
 export const WS_RECONNECT_CONFIG = {
   initialDelayMs: 1000,
   maxDelayMs: 30_000,
@@ -16,7 +15,7 @@ export const WS_RECONNECT_CONFIG = {
   maxAttempts: 10,
 } as const;
 
-/*** Redis key patterns ***/
+/** Redis key generators for consistent key naming. */
 export const REDIS_KEYS = {
   presence: (userId: string) => `presence:${userId}`,
   presenceChannel: (userId: string) => `channel:presence:${userId}`,
@@ -25,7 +24,7 @@ export const REDIS_KEYS = {
   userStreak: (userId: string) => `streak:${userId}`,
 } as const;
 
-/*** Files that are never broadcasted for privacy ***/
+/** Default file patterns excluded from activity broadcast. */
 export const DEFAULT_BLACKLISTED_PATTERNS = [
   '.env',
   '.env.*',
@@ -36,8 +35,7 @@ export const DEFAULT_BLACKLISTED_PATTERNS = [
   '**/credentials/**',
 ] as const;
 
-/*** Tier feature flags.
- * Higher tiers inherit all features from lower tiers ***/
+/** Tier feature flags (higher tiers inherit from lower). */
 const FREE_FEATURES = ['presence', 'friends', 'globalLeaderboard'] as const;
 const PRO_ADDITIONAL = ['ghostMode', 'customEmoji', 'history30d', 'themes'] as const;
 const TEAM_ADDITIONAL = [
@@ -53,7 +51,7 @@ export const TIER_FEATURES = {
   TEAM: [...FREE_FEATURES, ...PRO_ADDITIONAL, ...TEAM_ADDITIONAL] as const,
 } as const;
 
-/*** API rate limits per tier (requests per minute) ***/
+/** API rate limits per tier (requests/minute). */
 export const RATE_LIMITS = {
   FREE: 60,
   PRO: 120,

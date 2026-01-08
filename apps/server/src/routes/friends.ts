@@ -1,10 +1,7 @@
-/*** Friends Routes
+/**
+ * Friends Routes
  *
- * Follow/unfollow functionality:
- * - GET /friends - List friends (following)
- * - POST /friends/:id - Follow a user
- * - DELETE /friends/:id - Unfollow a user
- * - GET /friends/followers - List followers
+ * Follow/unfollow and friend management endpoints.
  */
 
 import { PaginationQuerySchema } from '@devradar/shared';
@@ -23,7 +20,6 @@ const UserIdParamsSchema = z.object({
   id: z.string().min(1, 'User ID is required'),
 });
 
-/*** Follow with user details type ***/
 interface FollowWithUser {
   following: {
     id: string;
@@ -36,7 +32,6 @@ interface FollowWithUser {
   createdAt: Date;
 }
 
-/*** Follow with follower details type ***/
 interface FollowWithFollower {
   follower: {
     id: string;
@@ -48,12 +43,11 @@ interface FollowWithFollower {
   createdAt: Date;
 }
 
-/*** Register friend routes ***/
+/** Registers friend routes on the Fastify instance. */
 export function friendRoutes(app: FastifyInstance): void {
   const db = getDb();
 
-  /*** GET /friends
-   * List users the current user is following (friends) ***/
+  // GET / - List friends (users you follow)
   app.get(
     '/',
     { onRequest: [app.authenticate] },
@@ -121,8 +115,7 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** GET /friends/followers
-   * List users following the current user ***/
+  // GET /followers - List users following you
   app.get(
     '/followers',
     { onRequest: [app.authenticate] },
@@ -174,8 +167,7 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** POST /friends/:id
-   * Follow a user ***/
+  // POST /:id - Follow a user
   app.post(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -235,8 +227,7 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** DELETE /friends/:id
-   * Unfriend a user (removes bidirectional follow relationship) ***/
+  // DELETE /:id - Unfriend (bidirectional)
   app.delete(
     '/:id',
     { onRequest: [app.authenticate] },
@@ -280,8 +271,7 @@ export function friendRoutes(app: FastifyInstance): void {
     }
   );
 
-  /*** GET /friends/:id/mutual
-   * Get mutual friends with a user ***/
+  // GET /:id/mutual - Mutual friends
   app.get(
     '/:id/mutual',
     { onRequest: [app.authenticate] },

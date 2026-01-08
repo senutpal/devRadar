@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import type { Logger } from '../utils/logger';
 import type { ActivityPayload, UserDTO, UserStatus, UserStatusType } from '@devradar/shared';
 
-/*** Friend item with status information*/
+/** Friend item with status and activity information. */
 export interface FriendInfo {
   id: string;
   username: string;
@@ -27,7 +27,7 @@ export interface FriendInfo {
   lastUpdated: number;
 }
 
-/*** Tree item representing a friend. ***/
+/** Tree item representing a friend in the sidebar. */
 class FriendTreeItem extends vscode.TreeItem {
   constructor(public readonly friend: FriendInfo) {
     super(friend.displayName ?? friend.username, vscode.TreeItemCollapsibleState.None);
@@ -45,7 +45,6 @@ class FriendTreeItem extends vscode.TreeItem {
     };
   }
 
-  /*** Builds the tooltip text ***/
   private buildTooltip(): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.isTrusted = true;
@@ -74,7 +73,6 @@ class FriendTreeItem extends vscode.TreeItem {
     return md;
   }
 
-  /*** Builds the description (shown next to the label) ***/
   private buildDescription(): string {
     if (this.friend.status === 'offline') {
       return 'Offline';
@@ -98,7 +96,6 @@ class FriendTreeItem extends vscode.TreeItem {
     return parts.join(' ');
   }
 
-  /*** Gets the status icon ***/
   private getStatusIcon(): vscode.ThemeIcon {
     switch (this.friend.status) {
       case 'online':
@@ -116,7 +113,6 @@ class FriendTreeItem extends vscode.TreeItem {
     }
   }
 
-  /*** Gets the status emoji ***/
   private getStatusEmoji(): string {
     switch (this.friend.status) {
       case 'online':
@@ -131,7 +127,6 @@ class FriendTreeItem extends vscode.TreeItem {
     }
   }
 
-  /*** Gets the status text ***/
   private getStatusText(): string {
     switch (this.friend.status) {
       case 'online':
@@ -146,7 +141,6 @@ class FriendTreeItem extends vscode.TreeItem {
     }
   }
 
-  /*** Formats duration in seconds to human-readable string ***/
   private formatDuration(seconds: number): string {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -158,7 +152,7 @@ class FriendTreeItem extends vscode.TreeItem {
   }
 }
 
-/*** Group header for organizing friends by status ***/
+/** Group header for organizing friends by status. */
 class GroupTreeItem extends vscode.TreeItem {
   constructor(
     public readonly statusGroup: UserStatusType | 'all',
@@ -188,7 +182,7 @@ class GroupTreeItem extends vscode.TreeItem {
   }
 }
 
-/*** Friends tree data provider ***/
+/** Tree data provider for the friends sidebar view. */
 export class FriendsProvider
   implements vscode.TreeDataProvider<FriendTreeItem | GroupTreeItem>, vscode.Disposable
 {
@@ -204,12 +198,10 @@ export class FriendsProvider
     this.disposables.push(this.onDidChangeTreeDataEmitter);
   }
 
-  /*** Returns a tree item for the given element ***/
   getTreeItem(element: FriendTreeItem | GroupTreeItem): vscode.TreeItem {
     return element;
   }
 
-  /*** Returns children for the given element or root elements if no element is provided ***/
   getChildren(element?: FriendTreeItem | GroupTreeItem): (FriendTreeItem | GroupTreeItem)[] {
     if (element instanceof GroupTreeItem) {
       /* Return friends filtered by the group's status */
@@ -241,12 +233,10 @@ export class FriendsProvider
     return groups;
   }
 
-  /*** Refreshes the friends tree view ***/
   refresh(): void {
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /*** Builds activity info from ActivityPayload ***/
   private buildActivityInfo(activity: ActivityPayload): FriendInfo['activity'] {
     const result: FriendInfo['activity'] = {
       sessionDuration: activity.sessionDuration,
@@ -263,7 +253,7 @@ export class FriendsProvider
     return result;
   }
 
-  /*** Handles friend status update from WebSocket ***/
+  /** Updates friend status from WebSocket FRIEND_STATUS message. */
   handleFriendStatus(payload: unknown): void {
     if (typeof payload !== 'object' || payload === null) {
       return;
@@ -300,14 +290,12 @@ export class FriendsProvider
     }
   }
 
-  /*** Gets list of currently online friends ***/
   getOnlineFriends(): FriendInfo[] {
     return Array.from(this.friends.values()).filter(
       (f) => f.status === 'online' || f.status === 'idle'
     );
   }
 
-  /*** Adds a friend to the list (called when receiving initial state) ***/
   addFriend(user: UserDTO, status: UserStatus): void {
     const friend: FriendInfo = {
       id: user.id,
@@ -323,7 +311,6 @@ export class FriendsProvider
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  /*** Clears all friends (called on logout) ***/
   clear(): void {
     this.friends.clear();
     this.onDidChangeTreeDataEmitter.fire(undefined);

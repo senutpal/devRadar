@@ -1,12 +1,11 @@
-/*** Environment Configuration
+/**
+ * Environment Configuration
  *
- * Validates and exports environment variables using Zod.
- * Follows 12-factor app principles - all config from environment ***/
+ * Validates environment variables using Zod (12-factor app style).
+ */
 
 import { z } from 'zod';
 
-/*** Environment schema with validation rules.
- * All required variables must be set or have sensible defaults ***/
 const envSchema = z.object({
   /* Node environment */
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -38,11 +37,9 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
-/*** Parsed and validated environment configuration ***/
+/** Parsed and validated environment configuration. */
 export type Env = z.infer<typeof envSchema>;
 
-/*** Parse and validate environment variables.
- * Throws descriptive error if validation fails ***/
 function parseEnv(): Env {
   const result = envSchema.safeParse(process.env);
 
@@ -54,15 +51,11 @@ function parseEnv(): Env {
   return result.data;
 }
 
-/*** Validated environment configuration.
- * Access this throughout the application for type-safe config ***/
+/** Validated environment configuration singleton. */
 export const env = parseEnv();
 
-/*** Check if running in production mode ***/
 export const isProduction = env.NODE_ENV === 'production';
 
-/*** Check if running in development mode ***/
 export const isDevelopment = env.NODE_ENV === 'development';
 
-/*** Check if running in test mode ***/
 export const isTest = env.NODE_ENV === 'test';

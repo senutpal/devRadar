@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Friend Requests icon: person with plus sign -->
+  <defs>
+    <style>
+      .icon-fill { fill: currentColor; }
+    </style>
+  </defs>
+  <!-- Person silhouette -->
+  <circle class="icon-fill" cx="6" cy="4" r="2.5"/>
+  <path class="icon-fill" d="M6 7.5C3.5 7.5 1 9 1 11v1.5h10V11c0-2-2.5-3.5-5-3.5z"/>
+  <!-- Plus sign -->
+  <path class="icon-fill" d="M13.5 7.5h-2v-2h-1v2h-2v1h2v2h1v-2h2z"/>
+</svg>

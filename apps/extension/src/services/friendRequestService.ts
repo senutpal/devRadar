@@ -62,6 +62,31 @@ export class FriendRequestService implements vscode.Disposable {
     return this.configManager.get('serverUrl');
   }
 
+  /*** Default timeout for fetch requests in milliseconds ***/
+  private static readonly DEFAULT_TIMEOUT = 10_000;
+
+  /*** Fetch with timeout using AbortController ***/
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeout: number = FriendRequestService.DEFAULT_TIMEOUT
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   /*** Search for users by query ***/
   async searchUsers(query: string): Promise<PublicUserDTO[]> {
     if (query.length < 2) {
@@ -69,7 +94,7 @@ export class FriendRequestService implements vscode.Disposable {
     }
 
     try {
-      const response = await fetch(
+      const response = await this.fetchWithTimeout(
         `${this.getServerUrl()}/api/v1/users/search?q=${encodeURIComponent(query)}`,
         {
           headers: this.getAuthHeader(),
@@ -91,18 +116,29 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Send a friend request to a user ***/
   async sendRequest(toUserId: string): Promise<FriendRequestDTO> {
     try {
-      const response = await fetch(`${this.getServerUrl()}/api/v1/friend-requests`, {
-        method: 'POST',
-        headers: {
-          ...this.getAuthHeader(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ toUserId }),
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.getServerUrl()}/api/v1/friend-requests`,
+        {
+          method: 'POST',
+          headers: {
+            ...this.getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ toUserId }),
+        }
+      );
 
       if (!response.ok) {
-        const errorData = (await response.json()) as { error?: { message?: string } };
-        throw new Error(errorData.error?.message ?? `Request failed: ${String(response.status)}`);
+        let message = `Request failed: ${String(response.status)}`;
+        try {
+          const errorData = (await response.json()) as { error?: { message?: string } };
+          if (errorData.error?.message) {
+            message = errorData.error.message;
+          }
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(message);
       }
 
       const result = (await response.json()) as { data: FriendRequestDTO };
@@ -117,7 +153,7 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Get incoming friend requests ***/
   async getIncomingRequests(page = 1, limit = 20): Promise<PaginatedResponse<FriendRequestDTO>> {
     try {
-      const response = await fetch(
+      const response = await this.fetchWithTimeout(
         `${this.getServerUrl()}/api/v1/friend-requests/incoming?page=${String(page)}&limit=${String(limit)}`,
         {
           headers: this.getAuthHeader(),
@@ -138,7 +174,7 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Get outgoing friend requests ***/
   async getOutgoingRequests(page = 1, limit = 20): Promise<PaginatedResponse<FriendRequestDTO>> {
     try {
-      const response = await fetch(
+      const response = await this.fetchWithTimeout(
         `${this.getServerUrl()}/api/v1/friend-requests/outgoing?page=${String(page)}&limit=${String(limit)}`,
         {
           headers: this.getAuthHeader(),
@@ -159,9 +195,12 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Get pending request count (for badge) ***/
   async getPendingCount(): Promise<number> {
     try {
-      const response = await fetch(`${this.getServerUrl()}/api/v1/friend-requests/count`, {
-        headers: this.getAuthHeader(),
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.getServerUrl()}/api/v1/friend-requests/count`,
+        {
+          headers: this.getAuthHeader(),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to get pending count: ${String(response.status)}`);
@@ -178,7 +217,7 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Accept a friend request ***/
   async acceptRequest(requestId: string): Promise<void> {
     try {
-      const response = await fetch(
+      const response = await this.fetchWithTimeout(
         `${this.getServerUrl()}/api/v1/friend-requests/${requestId}/accept`,
         {
           method: 'POST',
@@ -187,8 +226,16 @@ export class FriendRequestService implements vscode.Disposable {
       );
 
       if (!response.ok) {
-        const errorData = (await response.json()) as { error?: { message?: string } };
-        throw new Error(errorData.error?.message ?? `Accept failed: ${String(response.status)}`);
+        let message = `Accept failed: ${String(response.status)}`;
+        try {
+          const errorData = (await response.json()) as { error?: { message?: string } };
+          if (errorData.error?.message) {
+            message = errorData.error.message;
+          }
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(message);
       }
 
       this.onRequestsChangedEmitter.fire();
@@ -201,7 +248,7 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Reject a friend request ***/
   async rejectRequest(requestId: string): Promise<void> {
     try {
-      const response = await fetch(
+      const response = await this.fetchWithTimeout(
         `${this.getServerUrl()}/api/v1/friend-requests/${requestId}/reject`,
         {
           method: 'POST',
@@ -210,8 +257,16 @@ export class FriendRequestService implements vscode.Disposable {
       );
 
       if (!response.ok) {
-        const errorData = (await response.json()) as { error?: { message?: string } };
-        throw new Error(errorData.error?.message ?? `Reject failed: ${String(response.status)}`);
+        let message = `Reject failed: ${String(response.status)}`;
+        try {
+          const errorData = (await response.json()) as { error?: { message?: string } };
+          if (errorData.error?.message) {
+            message = errorData.error.message;
+          }
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(message);
       }
 
       this.onRequestsChangedEmitter.fire();
@@ -224,14 +279,25 @@ export class FriendRequestService implements vscode.Disposable {
   /*** Cancel an outgoing friend request ***/
   async cancelRequest(requestId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.getServerUrl()}/api/v1/friend-requests/${requestId}`, {
-        method: 'DELETE',
-        headers: this.getAuthHeader(),
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.getServerUrl()}/api/v1/friend-requests/${requestId}`,
+        {
+          method: 'DELETE',
+          headers: this.getAuthHeader(),
+        }
+      );
 
       if (!response.ok && response.status !== 204) {
-        const errorData = (await response.json()) as { error?: { message?: string } };
-        throw new Error(errorData.error?.message ?? `Cancel failed: ${String(response.status)}`);
+        let message = `Cancel failed: ${String(response.status)}`;
+        try {
+          const errorData = (await response.json()) as { error?: { message?: string } };
+          if (errorData.error?.message) {
+            message = errorData.error.message;
+          }
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(message);
       }
 
       this.onRequestsChangedEmitter.fire();
@@ -253,7 +319,10 @@ export class FriendRequestService implements vscode.Disposable {
       .showInformationMessage(`${fromName} sent you a friend request`, 'Accept', 'View')
       .then((action) => {
         if (action === 'Accept') {
-          void this.acceptRequest(payload.request.id);
+          this.acceptRequest(payload.request.id).catch((error: unknown) => {
+            this.logger.error('Failed to accept request from notification', error);
+            void vscode.window.showErrorMessage('Failed to accept friend request');
+          });
         } else if (action === 'View') {
           void vscode.commands.executeCommand('devradar.focusFriendRequests');
         }
@@ -269,6 +338,35 @@ export class FriendRequestService implements vscode.Disposable {
     /* Show VS Code notification */
     const friendName = payload.friend.displayName ?? payload.friend.username;
     void vscode.window.showInformationMessage(`${friendName} accepted your friend request! 🎉`);
+  }
+
+  /*** Unfriend a user by removing the friendship ***/
+  async unfriend(userId: string): Promise<void> {
+    try {
+      const response = await this.fetchWithTimeout(
+        `${this.getServerUrl()}/api/v1/friends/${userId}`,
+        {
+          method: 'DELETE',
+          headers: this.getAuthHeader(),
+        }
+      );
+
+      if (!response.ok && response.status !== 204) {
+        let message = `Unfriend failed: ${String(response.status)}`;
+        try {
+          const errorData = (await response.json()) as { error?: { message?: string } };
+          if (errorData.error?.message) {
+            message = errorData.error.message;
+          }
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(message);
+      }
+    } catch (error) {
+      this.logger.error('Failed to unfriend user', error);
+      throw error;
+    }
   }
 
   dispose(): void {

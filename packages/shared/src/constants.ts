@@ -52,6 +52,9 @@ export const REDIS_KEYS = {
   // Network activity (Phase 2)
   networkActivity: () => `network:activity`,
   networkIntensity: (minute: number) => `network:intensity:${String(minute)}`,
+
+  // Webhook deduplication (Phase 2)
+  webhookDelivery: 'webhook:github:delivery',
 } as const;
 
 /** Default file patterns excluded from activity broadcast. */

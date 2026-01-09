@@ -58,10 +58,15 @@ class LeaderboardTreeItem extends vscode.TreeItem {
   /** Build rich tooltip with details. */
   private buildTooltip(entry: LeaderboardEntry): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
-    md.isTrusted = true;
+    md.isTrusted = false;
 
-    md.appendMarkdown(`### ${entry.displayName ?? entry.username}\n\n`);
-    md.appendMarkdown(`**@${entry.username}**\n\n`);
+    md.appendMarkdown(`### `);
+    md.appendText(entry.displayName ?? entry.username);
+    md.appendMarkdown(`\n\n`);
+
+    md.appendMarkdown(`**@`);
+    md.appendText(entry.username);
+    md.appendMarkdown(`**\n\n`);
     md.appendMarkdown(`📊 **Rank:** #${String(entry.rank)}\n\n`);
     md.appendMarkdown(`⏱️ **This Week:** ${this.formatScore(entry.score)}\n\n`);
 
@@ -168,9 +173,7 @@ export class LeaderboardProvider
   /** Set loading state. */
   setLoading(loading: boolean): void {
     this.isLoading = loading;
-    if (loading) {
-      this.onDidChangeTreeDataEmitter.fire(undefined);
-    }
+    this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
   /** Clear leaderboard data. */

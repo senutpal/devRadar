@@ -16,6 +16,7 @@ import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 import { env } from '@/config';
+import { PrismaClientKnownRequestError } from '@/generated/prisma/internal/prismaNamespace';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
 import { getRedis } from '@/services/redis';
@@ -38,17 +39,14 @@ const GitHubIssuesPayloadSchema = z.object({
   repository: z.object({ full_name: z.string() }),
 });
 
-/** Zod schema for GitHub Push webhook payload. */
+/** Zod schema for GitHub Push webhook payload (minimal - only what's needed for counting). */
 const GitHubPushPayloadSchema = z.object({
   commits: z.array(
     z.object({
       id: z.string(),
-      message: z.string(),
-      author: z.object({ name: z.string(), email: z.string() }),
     })
   ),
-  pusher: z.object({ name: z.string(), email: z.string() }),
-  sender: z.object({ id: z.number(), login: z.string() }),
+  sender: z.object({ id: z.number() }),
   repository: z.object({ full_name: z.string() }),
 });
 
@@ -66,23 +64,44 @@ const GitHubPullRequestPayloadSchema = z.object({
 });
 
 /**
+ * Safely extract a header value from a request.
+ * Handles both string and string[] cases (takes first element if array).
+ */
+function getHeader(req: FastifyRequest, name: string): string | undefined {
+  const value = req.headers[name.toLowerCase()];
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+/**
  * Verify GitHub webhook signature using HMAC-SHA256.
  * Returns true if valid, false otherwise.
  */
 function verifyGitHubSignature(rawBody: Buffer, signature: string, secret: string): boolean {
+  // Trim and validate signature format
+  const sig = signature.trim();
+  if (!sig.startsWith('sha256=')) {
+    return false;
+  }
+
   // Calculate expected signature
   const expectedSignature =
     'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
-  // Constant-time comparison to prevent timing attacks
-  const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expectedSignature);
+  // Constant-time comparison to prevent timing attacks (explicit utf8 encoding)
+  const signatureBuffer = Buffer.from(sig, 'utf8');
+  const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
 
   if (signatureBuffer.length !== expectedBuffer.length) {
     return false;
   }
 
   return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+}
+
+/** Type guard to check if an error is a Prisma unique constraint violation (P2002). */
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return error instanceof PrismaClientKnownRequestError && error.code === 'P2002';
 }
 
 /** Registers webhook routes on the Fastify instance. */
@@ -110,24 +129,20 @@ export function webhookRoutes(app: FastifyInstance): void {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      // 1. Get raw body for signature verification
-      // Cast to RawBodyRequest to access rawBody if available
+      // 1. Validate raw body is available (required for signature verification)
       const rawRequest = request as RawBodyRequest;
-      let rawBody: Buffer;
-
-      if (rawRequest.rawBody) {
-        rawBody = rawRequest.rawBody;
-      } else {
-        // Fallback: re-serialize (note: this may differ from original body)
-        logger.warn('Raw body not available, falling back to re-serialization');
-        const bodyString = JSON.stringify(request.body);
-        rawBody = Buffer.from(bodyString, 'utf8');
+      if (!rawRequest.rawBody) {
+        logger.error('Raw body not available - server misconfiguration');
+        return reply.status(400).send({
+          error: 'Raw body required for signature verification. Server misconfiguration.',
+        });
       }
+      const rawBody = rawRequest.rawBody;
 
-      // 2. Verify signature
-      const signature = request.headers['x-hub-signature-256'] as string | undefined;
-      const event = request.headers['x-github-event'] as string | undefined;
-      const deliveryId = request.headers['x-github-delivery'] as string | undefined;
+      // 2. Extract headers safely (handles string[] case)
+      const signature = getHeader(request, 'x-hub-signature-256');
+      const event = getHeader(request, 'x-github-event');
+      const deliveryId = getHeader(request, 'x-github-delivery');
 
       if (!signature || !event) {
         logger.warn({ deliveryId }, 'Missing GitHub webhook headers');
@@ -145,6 +160,17 @@ export function webhookRoutes(app: FastifyInstance): void {
       if (!verifyGitHubSignature(rawBody, signature, secret)) {
         logger.warn({ deliveryId }, 'Invalid GitHub webhook signature');
         return reply.status(401).send({ error: 'Invalid signature' });
+      }
+
+      // 3. Dedupe deliveries using Redis (GitHub delivery IDs are globally unique)
+      if (deliveryId) {
+        const redis = getRedis();
+        const dedupeKey = `${REDIS_KEYS.webhookDelivery}:${deliveryId}`;
+        const setResult = await redis.set(dedupeKey, '1', 'EX', 60 * 60 * 24, 'NX');
+        if (setResult !== 'OK') {
+          logger.info({ deliveryId, event }, 'Duplicate GitHub webhook delivery ignored');
+          return reply.send({ received: true, deduped: true });
+        }
       }
 
       logger.info({ event, deliveryId }, 'Processing GitHub webhook');
@@ -248,43 +274,55 @@ export function webhookRoutes(app: FastifyInstance): void {
       return;
     }
 
-    // Create achievement
+    // Create achievement (with race condition protection)
     const achievementDef = ACHIEVEMENTS.ISSUE_CLOSED;
 
-    const achievement = await db.achievement.create({
-      data: {
-        userId: user.id,
-        type: 'ISSUE_CLOSED',
-        title: achievementDef.title,
-        description: `Closed issue #${String(issue.number)} in ${repository.full_name}`,
-        metadata: {
-          issueNumber: issue.number,
-          issueTitle: issue.title,
-          issueUrl: issue.html_url,
-          repository: repository.full_name,
+    try {
+      const achievement = await db.achievement.create({
+        data: {
+          userId: user.id,
+          type: 'ISSUE_CLOSED',
+          title: achievementDef.title,
+          description: `Closed issue #${String(issue.number)} in ${repository.full_name}`,
+          metadata: {
+            issueNumber: issue.number,
+            issueTitle: issue.title,
+            issueUrl: issue.html_url,
+            repository: repository.full_name,
+          },
         },
-      },
-    });
+      });
 
-    logger.info(
-      { userId: user.id, achievementId: achievement.id },
-      'Bug Slayer achievement earned'
-    );
+      logger.info(
+        { userId: user.id, achievementId: achievement.id },
+        'Bug Slayer achievement earned'
+      );
 
-    // Broadcast to followers and self
-    const followerIds = user.followers.map((f) => f.followerId);
+      // Broadcast to followers and self
+      const followerIds = user.followers.map((f) => f.followerId);
 
-    broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
-      achievement: {
-        id: achievement.id,
-        type: 'ISSUE_CLOSED',
-        title: achievementDef.title,
-        description: achievement.description,
-        earnedAt: achievement.earnedAt.toISOString(),
-      },
-      userId: user.id,
-      username: user.username,
-    });
+      broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
+        achievement: {
+          id: achievement.id,
+          type: 'ISSUE_CLOSED',
+          title: achievementDef.title,
+          description: achievement.description,
+          earnedAt: achievement.earnedAt.toISOString(),
+        },
+        userId: user.id,
+        username: user.username,
+      });
+    } catch (error) {
+      // Ignore unique constraint violations (P2002) from race conditions
+      if (isPrismaUniqueConstraintError(error)) {
+        logger.debug(
+          { userId: user.id, issueNumber: issue.number },
+          'Achievement already exists (race condition handled)'
+        );
+        return;
+      }
+      throw error;
+    }
   }
 
   async function handlePullRequestEvent(
@@ -330,43 +368,55 @@ export function webhookRoutes(app: FastifyInstance): void {
       return;
     }
 
-    // Create achievement
+    // Create achievement (with race condition protection)
     const achievementDef = ACHIEVEMENTS.PR_MERGED;
 
-    const achievement = await db.achievement.create({
-      data: {
-        userId: user.id,
-        type: 'PR_MERGED',
-        title: achievementDef.title,
-        description: `Merged PR #${String(pull_request.number)} in ${repository.full_name}`,
-        metadata: {
-          prNumber: pull_request.number,
-          prTitle: pull_request.title,
-          prUrl: pull_request.html_url,
-          repository: repository.full_name,
+    try {
+      const achievement = await db.achievement.create({
+        data: {
+          userId: user.id,
+          type: 'PR_MERGED',
+          title: achievementDef.title,
+          description: `Merged PR #${String(pull_request.number)} in ${repository.full_name}`,
+          metadata: {
+            prNumber: pull_request.number,
+            prTitle: pull_request.title,
+            prUrl: pull_request.html_url,
+            repository: repository.full_name,
+          },
         },
-      },
-    });
+      });
 
-    logger.info(
-      { userId: user.id, achievementId: achievement.id },
-      'Merge Master achievement earned'
-    );
+      logger.info(
+        { userId: user.id, achievementId: achievement.id },
+        'Merge Master achievement earned'
+      );
 
-    // Broadcast to followers and self
-    const followerIds = user.followers.map((f) => f.followerId);
+      // Broadcast to followers and self
+      const followerIds = user.followers.map((f) => f.followerId);
 
-    broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
-      achievement: {
-        id: achievement.id,
-        type: 'PR_MERGED',
-        title: achievementDef.title,
-        description: achievement.description,
-        earnedAt: achievement.earnedAt.toISOString(),
-      },
-      userId: user.id,
-      username: user.username,
-    });
+      broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
+        achievement: {
+          id: achievement.id,
+          type: 'PR_MERGED',
+          title: achievementDef.title,
+          description: achievement.description,
+          earnedAt: achievement.earnedAt.toISOString(),
+        },
+        userId: user.id,
+        username: user.username,
+      });
+    } catch (error) {
+      // Ignore unique constraint violations (P2002) from race conditions
+      if (isPrismaUniqueConstraintError(error)) {
+        logger.debug(
+          { userId: user.id, prNumber: pull_request.number },
+          'Achievement already exists (race condition handled)'
+        );
+        return;
+      }
+      throw error;
+    }
   }
 
   /**

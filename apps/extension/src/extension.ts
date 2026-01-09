@@ -311,6 +311,11 @@ class DevRadarExtension implements vscode.Disposable {
 
   /** Fetch user stats from the server. */
   private async fetchStats(): Promise<void> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 10_000);
+
     try {
       const token = this.authService.getToken();
       if (!token) return;
@@ -321,6 +326,7 @@ class DevRadarExtension implements vscode.Disposable {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
 
       if (response.ok) {
@@ -328,14 +334,27 @@ class DevRadarExtension implements vscode.Disposable {
         this.statsProvider.updateStats(json.data);
       } else {
         this.logger.warn('Failed to fetch stats', { status: response.status });
+        this.statsProvider.setLoading(false);
       }
     } catch (error) {
-      this.logger.warn('Failed to fetch stats', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.warn('Stats fetch timed out after 10s');
+      } else {
+        this.logger.warn('Failed to fetch stats', error);
+      }
+      this.statsProvider.setLoading(false);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
   /** Fetch friends leaderboard from the server. */
   private async fetchLeaderboard(): Promise<void> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 10_000);
+
     try {
       const token = this.authService.getToken();
       if (!token) return;
@@ -346,6 +365,7 @@ class DevRadarExtension implements vscode.Disposable {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
 
       if (response.ok) {
@@ -355,9 +375,17 @@ class DevRadarExtension implements vscode.Disposable {
         this.leaderboardProvider.updateLeaderboard(json.data.leaderboard, json.data.myRank);
       } else {
         this.logger.warn('Failed to fetch leaderboard', { status: response.status });
+        this.leaderboardProvider.setLoading(false);
       }
     } catch (error) {
-      this.logger.warn('Failed to fetch leaderboard', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.warn('Leaderboard fetch timed out after 10s');
+      } else {
+        this.logger.warn('Failed to fetch leaderboard', error);
+      }
+      this.leaderboardProvider.setLoading(false);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

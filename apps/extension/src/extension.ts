@@ -22,7 +22,14 @@ import { LeaderboardProvider } from './views/leaderboardProvider';
 import { StatsProvider } from './views/statsProvider';
 import { StatusBarManager } from './views/statusBarItem';
 
-import type { UserStatusType, FriendRequestDTO, PublicUserDTO, AchievementPayload, UserStatsDTO, LeaderboardEntry } from '@devradar/shared';
+import type {
+  UserStatusType,
+  FriendRequestDTO,
+  PublicUserDTO,
+  AchievementPayload,
+  UserStatsDTO,
+  LeaderboardEntry,
+} from '@devradar/shared';
 
 /** Coordinates all extension services and manages their lifecycle. */
 class DevRadarExtension implements vscode.Disposable {
@@ -317,7 +324,7 @@ class DevRadarExtension implements vscode.Disposable {
       });
 
       if (response.ok) {
-        const json = await response.json() as { data: UserStatsDTO };
+        const json = (await response.json()) as { data: UserStatsDTO };
         this.statsProvider.updateStats(json.data);
       } else {
         this.logger.warn('Failed to fetch stats', { status: response.status });
@@ -342,7 +349,9 @@ class DevRadarExtension implements vscode.Disposable {
       });
 
       if (response.ok) {
-        const json = await response.json() as { data: { leaderboard: LeaderboardEntry[]; myRank: number | null } };
+        const json = (await response.json()) as {
+          data: { leaderboard: LeaderboardEntry[]; myRank: number | null };
+        };
         this.leaderboardProvider.updateLeaderboard(json.data.leaderboard, json.data.myRank);
       } else {
         this.logger.warn('Failed to fetch leaderboard', { status: response.status });
@@ -721,6 +730,9 @@ class DevRadarExtension implements vscode.Disposable {
 
   dispose(): void {
     this.logger.info('Disposing DevRadar extension...');
+
+    // Stop stats refresh interval before disposing other resources
+    this.stopStatsRefresh();
 
     for (const disposable of this.disposables) {
       disposable.dispose();

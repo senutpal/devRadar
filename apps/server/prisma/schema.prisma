@@ -28,8 +28,49 @@ model User {
   sentFriendRequests     FriendRequest[] @relation("SentRequests")
   receivedFriendRequests FriendRequest[] @relation("ReceivedRequests")
 
+  // Phase 2: Gamification
+  achievements Achievement[]
+  weeklyStats  WeeklyStats[]
+
   @@index([username])
   @@index([githubId])
+}
+
+/// Achievement earned by a user (e.g., "Bug Slayer", "100 Day Streak")
+model Achievement {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String // "ISSUE_CLOSED", "PR_MERGED", "STREAK_7", "STREAK_30", etc.
+  title       String
+  description String?
+  metadata    Json? // Additional context (issue number, repo, etc.)
+  earnedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([earnedAt])
+}
+
+/// Aggregated weekly statistics (computed by cron or on-demand)
+model WeeklyStats {
+  id            String   @id @default(cuid())
+  userId        String
+  weekStart     DateTime // Monday 00:00:00 UTC
+  totalSeconds  Int      @default(0)
+  totalSessions Int      @default(0)
+  totalCommits  Int      @default(0)
+  topLanguage   String?
+  topProject    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+  @@index([weekStart])
 }
 
 model Follow {

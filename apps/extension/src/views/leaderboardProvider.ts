@@ -42,6 +42,10 @@ class LeaderboardTreeItem extends vscode.TreeItem {
 
   /** Format score (seconds) as human-readable duration. */
   private formatScore(seconds: number): string {
+    if (seconds === 0) {
+      return 'No activity';
+    }
+
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
 
@@ -74,7 +78,8 @@ class LeaderboardHeaderItem extends vscode.TreeItem {
   constructor(title: string, count: number) {
     super(title, vscode.TreeItemCollapsibleState.Expanded);
 
-    this.id = 'leaderboard-header';
+    // Generate unique ID from title to prevent duplicates
+    this.id = `leaderboard-header-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     this.description = count > 0 ? `${String(count)} entries` : '';
     this.iconPath = new vscode.ThemeIcon('trophy');
     this.contextValue = 'leaderboard-header';
@@ -91,7 +96,9 @@ class LeaderboardInfoItem extends vscode.TreeItem {
 
 /** Tree data provider for the mini-leaderboard view. */
 export class LeaderboardProvider
-  implements vscode.TreeDataProvider<LeaderboardTreeItem | LeaderboardHeaderItem | LeaderboardInfoItem>, vscode.Disposable
+  implements
+    vscode.TreeDataProvider<LeaderboardTreeItem | LeaderboardHeaderItem | LeaderboardInfoItem>,
+    vscode.Disposable
 {
   private readonly disposables: vscode.Disposable[] = [];
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<
@@ -108,7 +115,9 @@ export class LeaderboardProvider
     this.disposables.push(this.onDidChangeTreeDataEmitter);
   }
 
-  getTreeItem(element: LeaderboardTreeItem | LeaderboardHeaderItem | LeaderboardInfoItem): vscode.TreeItem {
+  getTreeItem(
+    element: LeaderboardTreeItem | LeaderboardHeaderItem | LeaderboardInfoItem
+  ): vscode.TreeItem {
     return element;
   }
 
@@ -153,7 +162,7 @@ export class LeaderboardProvider
     this.myRank = myRank;
     this.isLoading = false;
     this.onDidChangeTreeDataEmitter.fire(undefined);
-    this.logger.debug('Leaderboard updated', { count: entries.length, myRank });
+    this.logger.debug('Leaderboard updated', { count: this.leaderboard.length, myRank });
   }
 
   /** Set loading state. */

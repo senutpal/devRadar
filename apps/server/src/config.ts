@@ -33,8 +33,8 @@ const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1, 'GITHUB_CLIENT_ID is required'),
   GITHUB_CLIENT_SECRET: z.string().min(1, 'GITHUB_CLIENT_SECRET is required'),
   GITHUB_CALLBACK_URL: z.string().url(),
-  /* GitHub Webhooks (optional - for Boss Battles feature) */
-  GITHUB_WEBHOOK_SECRET: z.string().optional(),
+  /* GitHub Webhooks (optional - for Gamification feature) */
+  GITHUB_WEBHOOK_SECRET: z.string().min(8).optional(),
   /* Logging */
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });

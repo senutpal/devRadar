@@ -24,7 +24,10 @@ import { logger } from '@/lib/logger';
 import { authRoutes } from '@/routes/auth';
 import { friendRequestRoutes } from '@/routes/friendRequests';
 import { friendRoutes } from '@/routes/friends';
+import { leaderboardRoutes } from '@/routes/leaderboards';
+import { statsRoutes } from '@/routes/stats';
 import { userRoutes } from '@/routes/users';
+import { webhookRoutes } from '@/routes/webhooks';
 import { connectDb, disconnectDb, isDbHealthy } from '@/services/db';
 import { connectRedis, disconnectRedis, isRedisHealthy } from '@/services/redis';
 import { registerWebSocketHandler, getConnectionCount } from '@/ws/handler';
@@ -197,12 +200,17 @@ async function buildServer() {
       api.register(userRoutes, { prefix: '/users' });
       api.register(friendRoutes, { prefix: '/friends' });
       api.register(friendRequestRoutes, { prefix: '/friend-requests' });
+      // Phase 2: Gamification routes
+      api.register(statsRoutes, { prefix: '/stats' });
+      api.register(leaderboardRoutes, { prefix: '/leaderboards' });
       done();
     },
     { prefix: '/api/v1' }
   );
   /* Auth routes at root for OAuth redirects (GITHUB_CALLBACK_URL should use /auth/callback) */
   app.register(authRoutes, { prefix: '/auth' });
+  /* Webhooks at root for external services (GitHub) */
+  app.register(webhookRoutes, { prefix: '/webhooks' });
   registerWebSocketHandler(app);
 
   return app;

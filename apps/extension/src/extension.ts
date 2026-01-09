@@ -18,9 +18,11 @@ import { Logger } from './utils/logger';
 import { ActivityProvider } from './views/activityProvider';
 import { FriendRequestsProvider } from './views/friendRequestsProvider';
 import { FriendsProvider } from './views/friendsProvider';
+import { LeaderboardProvider } from './views/leaderboardProvider';
+import { StatsProvider } from './views/statsProvider';
 import { StatusBarManager } from './views/statusBarItem';
 
-import type { UserStatusType, FriendRequestDTO, PublicUserDTO } from '@devradar/shared';
+import type { UserStatusType, FriendRequestDTO, PublicUserDTO, AchievementPayload, UserStatsDTO, LeaderboardEntry } from '@devradar/shared';
 
 /** Coordinates all extension services and manages their lifecycle. */
 class DevRadarExtension implements vscode.Disposable {
@@ -35,6 +37,10 @@ class DevRadarExtension implements vscode.Disposable {
   private readonly friendRequestService: FriendRequestService;
   private readonly activityProvider: ActivityProvider;
   private readonly statusBar: StatusBarManager;
+  // Phase 2: Gamification
+  private readonly statsProvider: StatsProvider;
+  private readonly leaderboardProvider: LeaderboardProvider;
+  private statsRefreshInterval: NodeJS.Timeout | null = null;
 
   constructor(context: vscode.ExtensionContext) {
     this.logger = new Logger('DevRadar');
@@ -56,6 +62,9 @@ class DevRadarExtension implements vscode.Disposable {
     );
     this.activityProvider = new ActivityProvider(this.wsClient, this.logger);
     this.statusBar = new StatusBarManager(this.wsClient, this.authService, this.logger);
+    // Phase 2: Gamification views
+    this.statsProvider = new StatsProvider(this.logger);
+    this.leaderboardProvider = new LeaderboardProvider(this.logger);
     /* Track disposables */
     this.disposables.push(
       this.authService,
@@ -66,7 +75,9 @@ class DevRadarExtension implements vscode.Disposable {
       this.friendRequestsProvider,
       this.activityProvider,
       this.statusBar,
-      this.configManager
+      this.configManager,
+      this.statsProvider,
+      this.leaderboardProvider
     );
   }
 
@@ -98,7 +109,10 @@ class DevRadarExtension implements vscode.Disposable {
         'devradar.friendRequests',
         this.friendRequestsProvider
       ),
-      vscode.window.registerTreeDataProvider('devradar.activity', this.activityProvider)
+      vscode.window.registerTreeDataProvider('devradar.activity', this.activityProvider),
+      // Phase 2: Gamification views
+      vscode.window.registerTreeDataProvider('devradar.stats', this.statsProvider),
+      vscode.window.registerTreeDataProvider('devradar.leaderboard', this.leaderboardProvider)
     );
   }
 
@@ -251,14 +265,90 @@ class DevRadarExtension implements vscode.Disposable {
       this.logger.info('User is authenticated, connecting...');
       this.wsClient.connect();
       this.activityTracker.start();
+      // Phase 2: Start stats refresh
+      this.startStatsRefresh();
     } else {
       this.logger.info('User is not authenticated');
+      this.stopStatsRefresh();
     }
 
     void this.statusBar.update();
     this.friendsProvider.refresh();
     if (isAuthenticated) {
       void this.friendRequestsProvider.refresh();
+    }
+  }
+
+  /** Start periodic stats and leaderboard refresh. */
+  private startStatsRefresh(): void {
+    // Initial fetch
+    void this.fetchStats();
+    void this.fetchLeaderboard();
+
+    // Refresh every 60 seconds
+    this.statsRefreshInterval ??= setInterval(() => {
+      void this.fetchStats();
+      void this.fetchLeaderboard();
+    }, 60_000);
+  }
+
+  /** Stop stats refresh (e.g., on logout). */
+  private stopStatsRefresh(): void {
+    if (this.statsRefreshInterval) {
+      clearInterval(this.statsRefreshInterval);
+      this.statsRefreshInterval = null;
+    }
+    this.statsProvider.clear();
+    this.leaderboardProvider.clear();
+  }
+
+  /** Fetch user stats from the server. */
+  private async fetchStats(): Promise<void> {
+    try {
+      const token = this.authService.getToken();
+      if (!token) return;
+
+      const serverUrl = this.configManager.get('serverUrl');
+      const response = await fetch(`${serverUrl}/api/v1/stats/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const json = await response.json() as { data: UserStatsDTO };
+        this.statsProvider.updateStats(json.data);
+      } else {
+        this.logger.warn('Failed to fetch stats', { status: response.status });
+      }
+    } catch (error) {
+      this.logger.warn('Failed to fetch stats', error);
+    }
+  }
+
+  /** Fetch friends leaderboard from the server. */
+  private async fetchLeaderboard(): Promise<void> {
+    try {
+      const token = this.authService.getToken();
+      if (!token) return;
+
+      const serverUrl = this.configManager.get('serverUrl');
+      const response = await fetch(`${serverUrl}/api/v1/leaderboards/friends`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const json = await response.json() as { data: { leaderboard: LeaderboardEntry[]; myRank: number | null } };
+        this.leaderboardProvider.updateLeaderboard(json.data.leaderboard, json.data.myRank);
+      } else {
+        this.logger.warn('Failed to fetch leaderboard', { status: response.status });
+      }
+    } catch (error) {
+      this.logger.warn('Failed to fetch leaderboard', error);
     }
   }
 
@@ -447,12 +537,21 @@ class DevRadarExtension implements vscode.Disposable {
       return;
     }
 
-    if (typeof payload === 'object' && payload !== null && 'title' in payload) {
-      const achievement = payload as { title: string; description?: string };
+    if (typeof payload === 'object' && payload !== null && 'achievement' in payload) {
+      const data = payload as AchievementPayload;
+      const currentUserId = this.authService.getUser()?.id;
+      const isMyAchievement = data.userId === currentUserId;
+
+      const prefix = isMyAchievement ? 'You earned' : `${data.username} earned`;
 
       void vscode.window.showInformationMessage(
-        `DevRadar: 🏆 Achievement Unlocked - ${achievement.title}!`
+        `DevRadar: 🏆 ${prefix} - ${data.achievement.title}!`
       );
+
+      // Refresh stats to show new achievement
+      if (isMyAchievement) {
+        void this.fetchStats();
+      }
     }
   }
 

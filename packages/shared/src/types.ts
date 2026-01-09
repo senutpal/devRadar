@@ -144,3 +144,110 @@ export interface PaginatedResponse<T> {
     hasMore: boolean;
   };
 }
+
+// ============================================================================
+// Phase 2: Gamification Types
+// ============================================================================
+
+/** Achievement types for gamification. */
+export type AchievementType =
+  | 'ISSUE_CLOSED'
+  | 'PR_MERGED'
+  | 'STREAK_7'
+  | 'STREAK_30'
+  | 'STREAK_100'
+  | 'FIRST_HOUR'
+  | 'NIGHT_OWL'
+  | 'EARLY_BIRD';
+
+/** Achievement earned by user. */
+export interface AchievementDTO {
+  id: string;
+  type: AchievementType;
+  title: string;
+  description: string | null;
+  /** When the achievement was earned (ISO 8601) */
+  earnedAt: string;
+}
+
+/** Streak status for UI display. */
+export type StreakStatus = 'active' | 'at_risk' | 'broken';
+
+/** User streak information. */
+export interface StreakInfo {
+  /** Current consecutive days streak */
+  currentStreak: number;
+  /** All-time longest streak */
+  longestStreak: number;
+  /** Last activity date (YYYY-MM-DD format) */
+  lastActiveDate: string | null;
+  /** Whether user has coded today */
+  isActiveToday: boolean;
+  /** Current streak health status */
+  streakStatus: StreakStatus;
+}
+
+/** Weekly statistics for a user. */
+export interface WeeklyStatsDTO {
+  /** Start of the week (Monday 00:00 UTC, ISO 8601) */
+  weekStart: string;
+  /** Total coding time in seconds */
+  totalSeconds: number;
+  /** Number of coding sessions */
+  totalSessions: number;
+  /** Number of commits (from GitHub webhook) */
+  totalCommits: number;
+  /** Most used programming language */
+  topLanguage: string | null;
+  /** Most worked-on project */
+  topProject: string | null;
+  /** User's rank in weekly leaderboard (1-indexed, undefined if not ranked) */
+  rank?: number | undefined;
+}
+
+/** Leaderboard entry for display. */
+export interface LeaderboardEntry {
+  /** Position in leaderboard (1-indexed) */
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  /** Score (total seconds for time, count for commits) */
+  score: number;
+  /** Whether this user is a friend of the viewer */
+  isFriend: boolean;
+}
+
+/** Network activity heatmap data. */
+export interface NetworkActivity {
+  /** Number of users active in last 5 minutes */
+  totalActiveUsers: number;
+  /** Average coding intensity (0-100) */
+  averageIntensity: number;
+  /** True if network is particularly active ("🔥 mode") */
+  isHot: boolean;
+  /** Human-readable activity message */
+  message: string;
+}
+
+/** Payload for ACHIEVEMENT WebSocket message. */
+export interface AchievementPayload {
+  achievement: AchievementDTO;
+  /** User who earned the achievement */
+  userId: string;
+  /** Username for display */
+  username: string;
+}
+
+/** User stats summary (returned from /stats/me). */
+export interface UserStatsDTO {
+  streak: StreakInfo;
+  /** Today's coding time in seconds */
+  todaySession: number;
+  /** Current week's stats (may be null if no activity) */
+  weeklyStats: WeeklyStatsDTO | null;
+  /** Recent achievements (latest 5) */
+  recentAchievements: AchievementDTO[];
+}
+

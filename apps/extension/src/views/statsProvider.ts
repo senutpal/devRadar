@@ -35,7 +35,9 @@ class StatsTreeItem extends vscode.TreeItem {
 /** Tree data provider for the stats sidebar view. */
 export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
-  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<StatsTreeItem | undefined>();
+  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<
+    StatsTreeItem | undefined
+  >();
   private stats: StatsData | null = null;
   private isLoading = true;
 
@@ -75,7 +77,13 @@ export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vs
         ? '⚠ Code today to continue'
         : 'Start coding!';
 
-    items.push(new StatsTreeItem(`${streakEmoji} ${String(currentStreak)} Day Streak`, streakDescription, statusIcon));
+    items.push(
+      new StatsTreeItem(
+        `${streakEmoji} ${String(currentStreak)} Day Streak`,
+        streakDescription,
+        statusIcon
+      )
+    );
 
     // Show longest streak if different
     if (longestStreak > currentStreak && longestStreak > 0) {
@@ -86,7 +94,9 @@ export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vs
     const todayHours = Math.floor(this.stats.todaySession / 3600);
     const todayMinutes = Math.floor((this.stats.todaySession % 3600) / 60);
     const todayDisplay =
-      todayHours > 0 ? `${String(todayHours)}h ${String(todayMinutes)}m` : `${String(todayMinutes)}m`;
+      todayHours > 0
+        ? `${String(todayHours)}h ${String(todayMinutes)}m`
+        : `${String(todayMinutes)}m`;
 
     items.push(new StatsTreeItem(`Today: ${todayDisplay}`, 'Coding time', 'clock'));
 
@@ -94,35 +104,28 @@ export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vs
     if (this.stats.weeklyStats) {
       const weekHours = Math.floor(this.stats.weeklyStats.totalSeconds / 3600);
       const weekMinutes = Math.floor((this.stats.weeklyStats.totalSeconds % 3600) / 60);
-      const weekDisplay = weekHours > 0 ? `${String(weekHours)}h ${String(weekMinutes)}m` : `${String(weekMinutes)}m`;
+      const weekDisplay =
+        weekHours > 0 ? `${String(weekHours)}h ${String(weekMinutes)}m` : `${String(weekMinutes)}m`;
 
-      const rankDisplay = this.stats.weeklyStats.rank ? `#${String(this.stats.weeklyStats.rank)}` : '';
+      const rankDisplay = this.stats.weeklyStats.rank
+        ? `#${String(this.stats.weeklyStats.rank)}`
+        : '';
 
       items.push(new StatsTreeItem(`This Week: ${weekDisplay}`, rankDisplay, 'graph'));
 
       // Top language if available
       if (this.stats.weeklyStats.topLanguage) {
         items.push(
-          new StatsTreeItem(
-            `Top: ${this.stats.weeklyStats.topLanguage}`,
-            '',
-            'symbol-keyword'
-          )
+          new StatsTreeItem(`Top: ${this.stats.weeklyStats.topLanguage}`, '', 'symbol-keyword')
         );
       }
     }
 
     // === Recent Achievement ===
     if (this.stats.recentAchievements.length > 0) {
-      const latestAchievement = this.stats.recentAchievements[0];
+      const [latestAchievement] = this.stats.recentAchievements;
       if (latestAchievement) {
-        items.push(
-          new StatsTreeItem(
-            latestAchievement.title,
-            'Latest achievement',
-            'trophy'
-          )
-        );
+        items.push(new StatsTreeItem(latestAchievement.title, 'Latest achievement', 'trophy'));
       }
     }
 

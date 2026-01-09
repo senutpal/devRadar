@@ -2,8 +2,6 @@
  * Stats Routes
  *
  * Endpoints for user statistics, streaks, and session tracking.
- *
- * Best Practices Implemented:
  * - Redis pipelining for batch operations
  * - TTL-based streak expiration with grace period (25 hours)
  * - Efficient HINCRBY for atomic updates
@@ -33,6 +31,47 @@ const SessionPayloadSchema = z.object({
   language: z.string().optional(),
   project: z.string().optional(),
 });
+
+/** Allowlist of known programming languages to prevent unbounded Redis hash growth. */
+const LANGUAGE_ALLOWLIST = new Set([
+  'javascript',
+  'typescript',
+  'python',
+  'java',
+  'csharp',
+  'cpp',
+  'c',
+  'go',
+  'rust',
+  'ruby',
+  'php',
+  'swift',
+  'kotlin',
+  'scala',
+  'html',
+  'css',
+  'scss',
+  'less',
+  'json',
+  'yaml',
+  'xml',
+  'sql',
+  'shell',
+  'markdown',
+  'vue',
+  'react',
+  'angular',
+  'svelte',
+  'dart',
+  'r',
+  'lua',
+  'perl',
+  'haskell',
+  'elixir',
+  'clojure',
+  'fsharp',
+  'ocaml',
+]);
 
 /** Get Monday 00:00:00 UTC for current week. */
 function getWeekStart(): Date {
@@ -71,261 +110,329 @@ export function statsRoutes(app: FastifyInstance): void {
   /**
    * GET /stats/me - Get current user's stats summary
    */
-  app.get('/me', { onRequest: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { userId } = request.user as { userId: string };
-    const redis = getRedis();
+  app.get(
+    '/me',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+      const redis = getRedis();
 
-    // Pipeline Redis reads for efficiency
-    const pipeline = redis.pipeline();
-    const today = getTodayDate();
+      // Pipeline Redis reads for efficiency
+      const pipeline = redis.pipeline();
+      const today = getTodayDate();
 
-    pipeline.hgetall(REDIS_KEYS.streakData(userId));
-    pipeline.get(REDIS_KEYS.dailySession(userId, today));
+      pipeline.hgetall(REDIS_KEYS.streakData(userId));
+      pipeline.get(REDIS_KEYS.dailySession(userId, today));
 
-    const results = await pipeline.exec();
-    const streakData = results?.[0]?.[1] as Record<string, string> | null;
-    const todaySessionStr = results?.[1]?.[1] as string | null;
-    const todaySession = todaySessionStr ? parseInt(todaySessionStr, 10) : 0;
+      const results = await pipeline.exec();
 
-    // Build streak info
-    const currentStreak = parseInt(streakData?.count ?? '0', 10);
-    const longestStreak = parseInt(streakData?.longest ?? '0', 10);
-    const lastActiveDate = streakData?.lastDate ?? null;
-    const streakStatus = calculateStreakStatus(lastActiveDate);
+      // Check for pipeline errors
+      const streakError = results?.[0]?.[0];
+      const sessionError = results?.[1]?.[0];
+      if (streakError || sessionError) {
+        logger.error({ streakError, sessionError, userId }, 'Redis pipeline error in stats/me');
+      }
 
-    const streak: StreakInfo = {
-      currentStreak,
-      longestStreak,
-      lastActiveDate,
-      isActiveToday: streakStatus === 'active',
-      streakStatus,
-    };
+      const streakData = results?.[0]?.[1] as Record<string, string> | null;
+      const todaySessionStr = results?.[1]?.[1] as string | null;
+      const todaySession = todaySessionStr ? parseInt(todaySessionStr, 10) : 0;
 
-    // Get weekly stats from PostgreSQL
-    const weekStart = getWeekStart();
-    const weeklyStatsRecord = await db.weeklyStats.findUnique({
-      where: { userId_weekStart: { userId, weekStart } },
-    });
+      // Build streak info
+      const currentStreak = parseInt(streakData?.count ?? '0', 10);
+      const longestStreak = parseInt(streakData?.longest ?? '0', 10);
+      const lastActiveDate = streakData?.lastDate ?? null;
+      const streakStatus = calculateStreakStatus(lastActiveDate);
 
-    // Get user's rank in weekly leaderboard
-    const rank = await redis.zrevrank(REDIS_KEYS.weeklyLeaderboard('time'), userId);
-    const liveScore = await redis.zscore(REDIS_KEYS.weeklyLeaderboard('time'), userId);
+      const streak: StreakInfo = {
+        currentStreak,
+        longestStreak,
+        lastActiveDate,
+        isActiveToday: streakStatus === 'active',
+        streakStatus,
+      };
 
-    const weeklyStats: WeeklyStatsDTO | null = weeklyStatsRecord
-      ? {
-          weekStart: weeklyStatsRecord.weekStart.toISOString(),
-          totalSeconds: liveScore ? parseInt(liveScore, 10) : weeklyStatsRecord.totalSeconds,
-          totalSessions: weeklyStatsRecord.totalSessions,
-          totalCommits: weeklyStatsRecord.totalCommits,
-          topLanguage: weeklyStatsRecord.topLanguage,
-          topProject: weeklyStatsRecord.topProject,
-          rank: rank !== null ? rank + 1 : undefined,
-        }
-      : null;
+      // Get weekly stats from PostgreSQL
+      const weekStart = getWeekStart();
+      const weeklyStatsRecord = await db.weeklyStats.findUnique({
+        where: { userId_weekStart: { userId, weekStart } },
+      });
 
-    // Get recent achievements
-    const achievementRecords = await db.achievement.findMany({
-      where: { userId },
-      orderBy: { earnedAt: 'desc' },
-      take: 5,
-    });
+      // Get user's rank in weekly leaderboard
+      const rank = await redis.zrevrank(REDIS_KEYS.weeklyLeaderboard('time'), userId);
+      const liveScore = await redis.zscore(REDIS_KEYS.weeklyLeaderboard('time'), userId);
 
-    const recentAchievements: AchievementDTO[] = achievementRecords.map((a) => ({
-      id: a.id,
-      type: a.type as AchievementDTO['type'],
-      title: a.title,
-      description: a.description,
-      earnedAt: a.earnedAt.toISOString(),
-    }));
+      const weeklyStats: WeeklyStatsDTO | null = weeklyStatsRecord
+        ? {
+            weekStart: weeklyStatsRecord.weekStart.toISOString(),
+            totalSeconds: liveScore ? parseInt(liveScore, 10) : weeklyStatsRecord.totalSeconds,
+            totalSessions: weeklyStatsRecord.totalSessions,
+            totalCommits: weeklyStatsRecord.totalCommits,
+            topLanguage: weeklyStatsRecord.topLanguage,
+            topProject: weeklyStatsRecord.topProject,
+            rank: rank !== null ? rank + 1 : undefined,
+          }
+        : null;
 
-    return reply.send({
-      data: {
-        streak,
-        todaySession,
-        weeklyStats,
-        recentAchievements,
-      },
-    });
-  });
+      // Get recent achievements
+      const achievementRecords = await db.achievement.findMany({
+        where: { userId },
+        orderBy: { earnedAt: 'desc' },
+        take: 5,
+      });
+
+      const recentAchievements: AchievementDTO[] = achievementRecords.map((a) => ({
+        id: a.id,
+        type: a.type as AchievementDTO['type'],
+        title: a.title,
+        description: a.description,
+        earnedAt: a.earnedAt.toISOString(),
+      }));
+
+      return reply.send({
+        data: {
+          streak,
+          todaySession,
+          weeklyStats,
+          recentAchievements,
+        },
+      });
+    }
+  );
 
   /**
    * GET /stats/streak - Get detailed streak information
    */
-  app.get('/streak', { onRequest: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { userId } = request.user as { userId: string };
-    const redis = getRedis();
+  app.get(
+    '/streak',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+      const redis = getRedis();
 
-    const streakData = await redis.hgetall(REDIS_KEYS.streakData(userId));
+      const streakData = await redis.hgetall(REDIS_KEYS.streakData(userId));
 
-    const currentStreak = parseInt(streakData.count ?? '0', 10);
-    const longestStreak = parseInt(streakData.longest ?? '0', 10);
-    const lastActiveDate = streakData.lastDate ?? null;
-    const streakStatus = calculateStreakStatus(lastActiveDate);
+      const currentStreak = parseInt(streakData.count ?? '0', 10);
+      const longestStreak = parseInt(streakData.longest ?? '0', 10);
+      const lastActiveDate = streakData.lastDate ?? null;
+      const streakStatus = calculateStreakStatus(lastActiveDate);
 
-    const streak: StreakInfo = {
-      currentStreak,
-      longestStreak,
-      lastActiveDate,
-      isActiveToday: streakStatus === 'active',
-      streakStatus,
-    };
+      const streak: StreakInfo = {
+        currentStreak,
+        longestStreak,
+        lastActiveDate,
+        isActiveToday: streakStatus === 'active',
+        streakStatus,
+      };
 
-    return reply.send({ data: streak });
-  });
+      return reply.send({ data: streak });
+    }
+  );
 
   /**
    * POST /stats/session - Record coding session time
    * Called periodically by the extension with session duration increment
    */
-  app.post('/session', { onRequest: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { userId } = request.user as { userId: string };
-    const result = SessionPayloadSchema.safeParse(request.body);
+  app.post(
+    '/session',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+      const result = SessionPayloadSchema.safeParse(request.body);
 
-    if (!result.success) {
-      return reply.status(400).send({
-        error: { code: 'INVALID_PAYLOAD', message: 'Invalid session data' },
-      });
-    }
-
-    const { sessionDuration, language, project } = result.data;
-    const today = getTodayDate();
-    const redis = getRedis();
-
-    // Get existing streak data to check if we need to update it
-    const existingStreakData = await redis.hgetall(REDIS_KEYS.streakData(userId));
-    const lastDate = existingStreakData.lastDate;
-
-    // Pipeline for atomic operations
-    const pipeline = redis.pipeline();
-
-    // 1. Update daily session time (accumulate)
-    const sessionKey = REDIS_KEYS.dailySession(userId, today);
-    pipeline.incrby(sessionKey, sessionDuration);
-    pipeline.expire(sessionKey, SESSION_TTL_SECONDS);
-
-    // 2. Update streak if needed (only once per day)
-    let newStreak = 1;
-    let shouldCheckStreakAchievements = false;
-
-    if (lastDate !== today) {
-      // First activity of the day - update streak
-      shouldCheckStreakAchievements = true;
-
-      if (lastDate) {
-        const lastDateObj = new Date(lastDate);
-        const todayDateObj = new Date(today);
-        const daysDiff = Math.floor(
-          (todayDateObj.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (daysDiff === 1) {
-          // Consecutive day - increment streak
-          newStreak = parseInt(existingStreakData.count ?? '0', 10) + 1;
-        }
-        // daysDiff > 1 means streak is broken, reset to 1
+      if (!result.success) {
+        return reply.status(400).send({
+          error: { code: 'INVALID_PAYLOAD', message: 'Invalid session data' },
+        });
       }
 
-      const longestStreak = Math.max(newStreak, parseInt(existingStreakData.longest ?? '0', 10));
+      const { sessionDuration, language, project } = result.data;
+      const today = getTodayDate();
+      const redis = getRedis();
 
-      pipeline.hset(REDIS_KEYS.streakData(userId), {
-        count: newStreak.toString(),
-        lastDate: today,
-        longest: longestStreak.toString(),
-      });
-      pipeline.expire(REDIS_KEYS.streakData(userId), STREAK_TTL_SECONDS * 2);
+      // Lua script for atomic streak update
+      // Returns: [newStreak, shouldCheckAchievements] - 1 if streak was updated, 0 otherwise
+      const STREAK_UPDATE_SCRIPT = `
+      local streakKey = KEYS[1]
+      local today = ARGV[1]
+      local streakTtl = tonumber(ARGV[2])
+
+      -- Read current streak data
+      local lastDate = redis.call('HGET', streakKey, 'lastDate')
+      local count = tonumber(redis.call('HGET', streakKey, 'count') or '0')
+      local longest = tonumber(redis.call('HGET', streakKey, 'longest') or '0')
+
+      -- Check if already updated today
+      if lastDate == today then
+        return {count, 0}
+      end
+
+      -- Calculate new streak
+      local newStreak = 1
+      if lastDate then
+        -- Parse dates and calculate difference
+        local ly, lm, ld = lastDate:match('(%d+)-(%d+)-(%d+)')
+        local ty, tm, td = today:match('(%d+)-(%d+)-(%d+)')
+        local lastTime = os.time({year=ly, month=lm, day=ld})
+        local todayTime = os.time({year=ty, month=tm, day=td})
+        local daysDiff = math.floor((todayTime - lastTime) / 86400)
+
+        if daysDiff == 1 then
+          newStreak = count + 1
+        end
+        -- daysDiff > 1 means streak broken, reset to 1
+      end
+
+      local newLongest = math.max(newStreak, longest)
+
+      -- Update atomically
+      redis.call('HSET', streakKey, 'count', newStreak, 'lastDate', today, 'longest', newLongest)
+      redis.call('EXPIRE', streakKey, streakTtl)
+
+      return {newStreak, 1}
+    `;
+
+      // Execute atomic streak update
+      const streakKey = REDIS_KEYS.streakData(userId);
+      const streakResult = (await redis.eval(
+        STREAK_UPDATE_SCRIPT,
+        1,
+        streakKey,
+        today,
+        (STREAK_TTL_SECONDS * 2).toString()
+      )) as [number, number];
+
+      const newStreak = streakResult[0];
+      const shouldCheckStreakAchievements = streakResult[1] === 1;
+
+      // Pipeline for remaining atomic operations
+      const pipeline = redis.pipeline();
+
+      // 1. Update daily session time (accumulate)
+      const sessionKey = REDIS_KEYS.dailySession(userId, today);
+      pipeline.incrby(sessionKey, sessionDuration);
+      pipeline.expire(sessionKey, SESSION_TTL_SECONDS);
+
+      // 2. Update weekly leaderboard score
+      pipeline.zincrby(REDIS_KEYS.weeklyLeaderboard('time'), sessionDuration, userId);
+
+      // 3. Update network activity (1-minute bucket for heatmap)
+      const minute = Math.floor(Date.now() / 60000);
+      pipeline.hincrby(REDIS_KEYS.networkIntensity(minute), 'count', 1);
+      pipeline.expire(REDIS_KEYS.networkIntensity(minute), NETWORK_ACTIVITY_TTL_SECONDS);
+
+      // 5. Track language if provided (validate to prevent unbounded hash growth)
+      if (language) {
+        const normalizedLang = language.toLowerCase().trim();
+        const safeLang = LANGUAGE_ALLOWLIST.has(normalizedLang) ? normalizedLang : 'other';
+        pipeline.hincrby(REDIS_KEYS.networkIntensity(minute), `lang:${safeLang}`, 1);
+      }
+
+      const pipelineResults = await pipeline.exec();
+
+      // Check for pipeline errors
+      if (pipelineResults) {
+        for (let i = 0; i < pipelineResults.length; i++) {
+          const [err] = pipelineResults[i] ?? [];
+          if (err) {
+            logger.error(
+              { error: err, userId, commandIndex: i },
+              'Redis pipeline error in session recording'
+            );
+          }
+        }
+      }
+
+      // Check for streak achievements (with error handling)
+      if (shouldCheckStreakAchievements) {
+        checkStreakAchievements(userId, newStreak).catch((err: unknown) => {
+          logger.error(
+            { error: err, userId, streak: newStreak },
+            'Failed to check streak achievements'
+          );
+        });
+      }
+
+      logger.debug({ userId, sessionDuration, language, project }, 'Recorded session');
+
+      return reply.send({ data: { recorded: true } });
     }
-
-    // 3. Update weekly leaderboard score
-    pipeline.zincrby(REDIS_KEYS.weeklyLeaderboard('time'), sessionDuration, userId);
-
-    // 4. Update network activity (1-minute bucket for heatmap)
-    const minute = Math.floor(Date.now() / 60000);
-    pipeline.hincrby(REDIS_KEYS.networkIntensity(minute), 'count', 1);
-    pipeline.expire(REDIS_KEYS.networkIntensity(minute), NETWORK_ACTIVITY_TTL_SECONDS);
-
-    // 5. Track language if provided
-    if (language) {
-      pipeline.hincrby(REDIS_KEYS.networkIntensity(minute), `lang:${language}`, 1);
-    }
-
-    await pipeline.exec();
-
-    // Check for streak achievements (async, fire-and-forget)
-    if (shouldCheckStreakAchievements) {
-      void checkStreakAchievements(userId, newStreak);
-    }
-
-    logger.debug({ userId, sessionDuration, language, project }, 'Recorded session');
-
-    return reply.send({ data: { recorded: true } });
-  });
+  );
 
   /**
    * GET /stats/weekly - Get weekly statistics with real-time data
    */
-  app.get('/weekly', { onRequest: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { userId } = request.user as { userId: string };
-    const redis = getRedis();
+  app.get(
+    '/weekly',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+      const redis = getRedis();
 
-    // Get current week stats from DB
-    const weekStart = getWeekStart();
-    const weeklyStatsRecord = await db.weeklyStats.findUnique({
-      where: { userId_weekStart: { userId, weekStart } },
-    });
+      // Get current week stats from DB
+      const weekStart = getWeekStart();
+      const weeklyStatsRecord = await db.weeklyStats.findUnique({
+        where: { userId_weekStart: { userId, weekStart } },
+      });
 
-    // Get real-time Redis data
-    const [liveScore, rank] = await Promise.all([
-      redis.zscore(REDIS_KEYS.weeklyLeaderboard('time'), userId),
-      redis.zrevrank(REDIS_KEYS.weeklyLeaderboard('time'), userId),
-    ]);
+      // Get real-time Redis data
+      const [liveScore, rank] = await Promise.all([
+        redis.zscore(REDIS_KEYS.weeklyLeaderboard('time'), userId),
+        redis.zrevrank(REDIS_KEYS.weeklyLeaderboard('time'), userId),
+      ]);
 
-    const weeklyStats: WeeklyStatsDTO = {
-      weekStart: weekStart.toISOString(),
-      totalSeconds: liveScore ? parseInt(liveScore, 10) : (weeklyStatsRecord?.totalSeconds ?? 0),
-      totalSessions: weeklyStatsRecord?.totalSessions ?? 0,
-      totalCommits: weeklyStatsRecord?.totalCommits ?? 0,
-      topLanguage: weeklyStatsRecord?.topLanguage ?? null,
-      topProject: weeklyStatsRecord?.topProject ?? null,
-      rank: rank !== null ? rank + 1 : undefined,
-    };
+      const weeklyStats: WeeklyStatsDTO = {
+        weekStart: weekStart.toISOString(),
+        totalSeconds: liveScore ? parseInt(liveScore, 10) : (weeklyStatsRecord?.totalSeconds ?? 0),
+        totalSessions: weeklyStatsRecord?.totalSessions ?? 0,
+        totalCommits: weeklyStatsRecord?.totalCommits ?? 0,
+        topLanguage: weeklyStatsRecord?.topLanguage ?? null,
+        topProject: weeklyStatsRecord?.topProject ?? null,
+        rank: rank !== null ? rank + 1 : undefined,
+      };
 
-    return reply.send({ data: weeklyStats });
-  });
+      return reply.send({ data: weeklyStats });
+    }
+  );
 
   /**
    * GET /stats/achievements - Get all user achievements
    */
-  app.get('/achievements', { onRequest: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { userId } = request.user as { userId: string };
+  app.get(
+    '/achievements',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
 
-    const achievementRecords = await db.achievement.findMany({
-      where: { userId },
-      orderBy: { earnedAt: 'desc' },
-    });
+      const achievementRecords = await db.achievement.findMany({
+        where: { userId },
+        orderBy: { earnedAt: 'desc' },
+      });
 
-    const achievements: AchievementDTO[] = achievementRecords.map((a) => ({
-      id: a.id,
-      type: a.type as AchievementDTO['type'],
-      title: a.title,
-      description: a.description,
-      earnedAt: a.earnedAt.toISOString(),
-    }));
+      const achievements: AchievementDTO[] = achievementRecords.map((a) => ({
+        id: a.id,
+        type: a.type as AchievementDTO['type'],
+        title: a.title,
+        description: a.description,
+        earnedAt: a.earnedAt.toISOString(),
+      }));
 
-    return reply.send({ data: achievements });
-  });
+      return reply.send({ data: achievements });
+    }
+  );
 
   /**
    * Check and award streak achievements.
    */
   async function checkStreakAchievements(userId: string, streak: number): Promise<void> {
+    // Milestones in descending order - highest applicable wins
     const milestones = [
-      { streak: 7, type: 'STREAK_7' as const },
-      { streak: 30, type: 'STREAK_30' as const },
       { streak: 100, type: 'STREAK_100' as const },
+      { streak: 30, type: 'STREAK_30' as const },
+      { streak: 7, type: 'STREAK_7' as const },
     ];
 
     for (const milestone of milestones) {
-      if (streak === milestone.streak) {
+      if (streak >= milestone.streak) {
         // Check if already earned
         const existing = await db.achievement.findFirst({
           where: { userId, type: milestone.type },

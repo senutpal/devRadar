@@ -2,7 +2,7 @@
   "name": "devradar",
   "displayName": "DevRadar",
   "description": "See what your friends are coding in real-time",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "devradar",
   "license": "AGPL-3.0-or-later",
   "private": true,
@@ -42,10 +42,20 @@
     "views": {
       "devradar": [
         {
+          "id": "devradar.stats",
+          "name": "My Stats",
+          "contextualTitle": "DevRadar Stats"
+        },
+        {
           "id": "devradar.friends",
           "name": "Friends",
           "icon": "media/friends.svg",
           "contextualTitle": "DevRadar Friends"
+        },
+        {
+          "id": "devradar.leaderboard",
+          "name": "Leaderboard",
+          "contextualTitle": "DevRadar Leaderboard"
         },
         {
           "id": "devradar.friendRequests",

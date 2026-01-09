@@ -1,9 +1,7 @@
 /**
  * Webhooks Routes
  *
- * GitHub webhook handler for "Boss Battles" (achievement system).
- *
- * Security Best Practices:
+ * GitHub webhook handler for Gamification (achievement system).
  * - HMAC-SHA256 signature verification (X-Hub-Signature-256)
  * - Constant-time comparison (crypto.timingSafeEqual)
  * - Raw body access before JSON parsing
@@ -13,6 +11,7 @@
 import crypto from 'crypto';
 
 import { ACHIEVEMENTS, REDIS_KEYS } from '@devradar/shared';
+import { z } from 'zod';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
@@ -22,63 +21,49 @@ import { getDb } from '@/services/db';
 import { getRedis } from '@/services/redis';
 import { broadcastToUsers } from '@/ws/handler';
 
-/** GitHub Issues webhook payload structure. */
-interface GitHubIssuesPayload {
-  action: string;
-  issue: {
-    number: number;
-    title: string;
-    html_url: string;
-  };
-  sender: {
-    id: number;
-    login: string;
-  };
-  repository: {
-    full_name: string;
-  };
+/** Extended request with raw body for signature verification. */
+interface RawBodyRequest extends FastifyRequest {
+  rawBody?: Buffer;
 }
 
-/** GitHub Push webhook payload structure. */
-interface GitHubPushPayload {
-  commits: {
-    id: string;
-    message: string;
-    author: {
-      name: string;
-      email: string;
-    };
-  }[];
-  pusher: {
-    name: string;
-    email: string;
-  };
-  sender: {
-    id: number;
-    login: string;
-  };
-  repository: {
-    full_name: string;
-  };
-}
+/** Zod schema for GitHub Issues webhook payload. */
+const GitHubIssuesPayloadSchema = z.object({
+  action: z.string(),
+  issue: z.object({
+    number: z.number(),
+    title: z.string(),
+    html_url: z.string(),
+  }),
+  sender: z.object({ id: z.number(), login: z.string() }),
+  repository: z.object({ full_name: z.string() }),
+});
 
-/** GitHub Pull Request webhook payload structure. */
-interface GitHubPullRequestPayload {
-  action: string;
-  pull_request: {
-    number: number;
-    title: string;
-    html_url: string;
-    merged: boolean;
-  };
-  sender: {
-    id: number;
-    login: string;
-  };
-  repository: {
-    full_name: string;
-  };
-}
+/** Zod schema for GitHub Push webhook payload. */
+const GitHubPushPayloadSchema = z.object({
+  commits: z.array(
+    z.object({
+      id: z.string(),
+      message: z.string(),
+      author: z.object({ name: z.string(), email: z.string() }),
+    })
+  ),
+  pusher: z.object({ name: z.string(), email: z.string() }),
+  sender: z.object({ id: z.number(), login: z.string() }),
+  repository: z.object({ full_name: z.string() }),
+});
+
+/** Zod schema for GitHub Pull Request webhook payload. */
+const GitHubPullRequestPayloadSchema = z.object({
+  action: z.string(),
+  pull_request: z.object({
+    number: z.number(),
+    title: z.string(),
+    html_url: z.string(),
+    merged: z.boolean(),
+  }),
+  sender: z.object({ id: z.number(), login: z.string() }),
+  repository: z.object({ full_name: z.string() }),
+});
 
 /**
  * Verify GitHub webhook signature using HMAC-SHA256.
@@ -86,7 +71,8 @@ interface GitHubPullRequestPayload {
  */
 function verifyGitHubSignature(rawBody: Buffer, signature: string, secret: string): boolean {
   // Calculate expected signature
-  const expectedSignature = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  const expectedSignature =
+    'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
   // Constant-time comparison to prevent timing attacks
   const signatureBuffer = Buffer.from(signature);
@@ -115,16 +101,28 @@ export function webhookRoutes(app: FastifyInstance): void {
     '/github',
     {
       config: {
-        // Skip rate limiting for webhooks (GitHub has its own retry logic)
-        rateLimit: false,
+        // Generous rate limit for webhooks - protects against DoS while
+        // accommodating GitHub's webhook delivery (GitHub IPs may vary)
+        rateLimit: {
+          max: 100,
+          timeWindow: '1 minute',
+        },
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       // 1. Get raw body for signature verification
-      // Note: Fastify should give us access to rawBody via request.rawBody or we parse it
-      // For now, we'll re-serialize since Fastify already parsed it
-      const bodyString = JSON.stringify(request.body);
-      const rawBody = Buffer.from(bodyString, 'utf8');
+      // Cast to RawBodyRequest to access rawBody if available
+      const rawRequest = request as RawBodyRequest;
+      let rawBody: Buffer;
+
+      if (rawRequest.rawBody) {
+        rawBody = rawRequest.rawBody;
+      } else {
+        // Fallback: re-serialize (note: this may differ from original body)
+        logger.warn('Raw body not available, falling back to re-serialization');
+        const bodyString = JSON.stringify(request.body);
+        rawBody = Buffer.from(bodyString, 'utf8');
+      }
 
       // 2. Verify signature
       const signature = request.headers['x-hub-signature-256'] as string | undefined;
@@ -151,22 +149,43 @@ export function webhookRoutes(app: FastifyInstance): void {
 
       logger.info({ event, deliveryId }, 'Processing GitHub webhook');
 
-      // 3. Handle events
-      const payload = request.body as Record<string, unknown>;
+      // 3. Handle events with Zod validation
+      const payload = request.body;
 
       try {
         switch (event) {
-          case 'issues':
-            await handleIssuesEvent(payload as unknown as GitHubIssuesPayload);
+          case 'issues': {
+            const parsed = GitHubIssuesPayloadSchema.safeParse(payload);
+            if (!parsed.success) {
+              logger.warn({ error: parsed.error.message, deliveryId }, 'Invalid issues payload');
+              break;
+            }
+            await handleIssuesEvent(parsed.data);
             break;
+          }
 
-          case 'pull_request':
-            await handlePullRequestEvent(payload as unknown as GitHubPullRequestPayload);
+          case 'pull_request': {
+            const parsed = GitHubPullRequestPayloadSchema.safeParse(payload);
+            if (!parsed.success) {
+              logger.warn(
+                { error: parsed.error.message, deliveryId },
+                'Invalid pull_request payload'
+              );
+              break;
+            }
+            await handlePullRequestEvent(parsed.data);
             break;
+          }
 
-          case 'push':
-            await handlePushEvent(payload as unknown as GitHubPushPayload);
+          case 'push': {
+            const parsed = GitHubPushPayloadSchema.safeParse(payload);
+            if (!parsed.success) {
+              logger.warn({ error: parsed.error.message, deliveryId }, 'Invalid push payload');
+              break;
+            }
+            await handlePushEvent(parsed.data);
             break;
+          }
 
           case 'ping':
             logger.info({ deliveryId }, 'GitHub webhook ping received');
@@ -187,7 +206,9 @@ export function webhookRoutes(app: FastifyInstance): void {
   /**
    * Handle issues event - Award achievements for closed issues
    */
-  async function handleIssuesEvent(payload: GitHubIssuesPayload): Promise<void> {
+  async function handleIssuesEvent(
+    payload: z.infer<typeof GitHubIssuesPayloadSchema>
+  ): Promise<void> {
     if (payload.action !== 'closed') {
       return;
     }
@@ -210,51 +231,65 @@ export function webhookRoutes(app: FastifyInstance): void {
       return;
     }
 
+    // Check for existing achievement to avoid duplicate key errors
+    const existingAchievement = await db.achievement.findFirst({
+      where: {
+        userId: user.id,
+        type: 'ISSUE_CLOSED',
+        metadata: { path: ['issueNumber'], equals: issue.number },
+      },
+    });
+
+    if (existingAchievement) {
+      logger.debug(
+        { userId: user.id, issueNumber: issue.number },
+        'Achievement already exists for this issue'
+      );
+      return;
+    }
+
     // Create achievement
     const achievementDef = ACHIEVEMENTS.ISSUE_CLOSED;
 
-    try {
-      const achievement = await db.achievement.create({
-        data: {
-          userId: user.id,
-          type: 'ISSUE_CLOSED',
-          title: achievementDef.title,
-          description: `Closed issue #${String(issue.number)} in ${repository.full_name}`,
-          metadata: {
-            issueNumber: issue.number,
-            issueTitle: issue.title,
-            issueUrl: issue.html_url,
-            repository: repository.full_name,
-          },
-        },
-      });
-
-      logger.info({ userId: user.id, achievementId: achievement.id }, 'Bug Slayer achievement earned');
-
-      // Broadcast to followers and self
-      const followerIds = user.followers.map((f) => f.followerId);
-
-      broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
-        achievement: {
-          id: achievement.id,
-          type: 'ISSUE_CLOSED',
-          title: achievementDef.title,
-          description: achievement.description,
-          earnedAt: achievement.earnedAt.toISOString(),
-        },
+    const achievement = await db.achievement.create({
+      data: {
         userId: user.id,
-        username: user.username,
-      });
-    } catch (error) {
-      // Likely a duplicate - that's OK
-      logger.debug({ error, userId: user.id }, 'Failed to create achievement (possibly duplicate)');
-    }
+        type: 'ISSUE_CLOSED',
+        title: achievementDef.title,
+        description: `Closed issue #${String(issue.number)} in ${repository.full_name}`,
+        metadata: {
+          issueNumber: issue.number,
+          issueTitle: issue.title,
+          issueUrl: issue.html_url,
+          repository: repository.full_name,
+        },
+      },
+    });
+
+    logger.info(
+      { userId: user.id, achievementId: achievement.id },
+      'Bug Slayer achievement earned'
+    );
+
+    // Broadcast to followers and self
+    const followerIds = user.followers.map((f) => f.followerId);
+
+    broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
+      achievement: {
+        id: achievement.id,
+        type: 'ISSUE_CLOSED',
+        title: achievementDef.title,
+        description: achievement.description,
+        earnedAt: achievement.earnedAt.toISOString(),
+      },
+      userId: user.id,
+      username: user.username,
+    });
   }
 
-  /**
-   * Handle pull_request event - Award achievements for merged PRs
-   */
-  async function handlePullRequestEvent(payload: GitHubPullRequestPayload): Promise<void> {
+  async function handlePullRequestEvent(
+    payload: z.infer<typeof GitHubPullRequestPayloadSchema>
+  ): Promise<void> {
     // Only handle merged PRs
     if (payload.action !== 'closed' || !payload.pull_request.merged) {
       return;
@@ -278,50 +313,66 @@ export function webhookRoutes(app: FastifyInstance): void {
       return;
     }
 
+    // Check for existing achievement to avoid duplicate key errors
+    const existingAchievement = await db.achievement.findFirst({
+      where: {
+        userId: user.id,
+        type: 'PR_MERGED',
+        metadata: { path: ['prNumber'], equals: pull_request.number },
+      },
+    });
+
+    if (existingAchievement) {
+      logger.debug(
+        { userId: user.id, prNumber: pull_request.number },
+        'Achievement already exists for this PR'
+      );
+      return;
+    }
+
     // Create achievement
     const achievementDef = ACHIEVEMENTS.PR_MERGED;
 
-    try {
-      const achievement = await db.achievement.create({
-        data: {
-          userId: user.id,
-          type: 'PR_MERGED',
-          title: achievementDef.title,
-          description: `Merged PR #${String(pull_request.number)} in ${repository.full_name}`,
-          metadata: {
-            prNumber: pull_request.number,
-            prTitle: pull_request.title,
-            prUrl: pull_request.html_url,
-            repository: repository.full_name,
-          },
-        },
-      });
-
-      logger.info({ userId: user.id, achievementId: achievement.id }, 'Merge Master achievement earned');
-
-      // Broadcast to followers and self
-      const followerIds = user.followers.map((f) => f.followerId);
-
-      broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
-        achievement: {
-          id: achievement.id,
-          type: 'PR_MERGED',
-          title: achievementDef.title,
-          description: achievement.description,
-          earnedAt: achievement.earnedAt.toISOString(),
-        },
+    const achievement = await db.achievement.create({
+      data: {
         userId: user.id,
-        username: user.username,
-      });
-    } catch (error) {
-      logger.debug({ error, userId: user.id }, 'Failed to create achievement (possibly duplicate)');
-    }
+        type: 'PR_MERGED',
+        title: achievementDef.title,
+        description: `Merged PR #${String(pull_request.number)} in ${repository.full_name}`,
+        metadata: {
+          prNumber: pull_request.number,
+          prTitle: pull_request.title,
+          prUrl: pull_request.html_url,
+          repository: repository.full_name,
+        },
+      },
+    });
+
+    logger.info(
+      { userId: user.id, achievementId: achievement.id },
+      'Merge Master achievement earned'
+    );
+
+    // Broadcast to followers and self
+    const followerIds = user.followers.map((f) => f.followerId);
+
+    broadcastToUsers([...followerIds, user.id], 'ACHIEVEMENT', {
+      achievement: {
+        id: achievement.id,
+        type: 'PR_MERGED',
+        title: achievementDef.title,
+        description: achievement.description,
+        earnedAt: achievement.earnedAt.toISOString(),
+      },
+      userId: user.id,
+      username: user.username,
+    });
   }
 
   /**
    * Handle push event - Track commit counts for leaderboard
    */
-  async function handlePushEvent(payload: GitHubPushPayload): Promise<void> {
+  async function handlePushEvent(payload: z.infer<typeof GitHubPushPayloadSchema>): Promise<void> {
     const { sender, commits } = payload;
     const commitCount = commits.length;
 

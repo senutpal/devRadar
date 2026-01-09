@@ -8,15 +8,7 @@
 import * as vscode from 'vscode';
 
 import type { Logger } from '../utils/logger';
-import type { StreakInfo, WeeklyStatsDTO, AchievementDTO } from '@devradar/shared';
-
-/** Stats data structure matching API response. */
-export interface StatsData {
-  streak: StreakInfo;
-  todaySession: number;
-  weeklyStats: WeeklyStatsDTO | null;
-  recentAchievements: AchievementDTO[];
-}
+import type { UserStatsDTO } from '@devradar/shared';
 
 /** Tree item for stats display. */
 class StatsTreeItem extends vscode.TreeItem {
@@ -38,7 +30,7 @@ export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vs
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<
     StatsTreeItem | undefined
   >();
-  private stats: StatsData | null = null;
+  private stats: UserStatsDTO | null = null;
   private isLoading = true;
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
@@ -133,7 +125,7 @@ export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vs
   }
 
   /** Updates the stats data and triggers a tree refresh. */
-  updateStats(stats: StatsData): void {
+  updateStats(stats: UserStatsDTO): void {
     this.stats = stats;
     this.isLoading = false;
     this.onDidChangeTreeDataEmitter.fire(undefined);
@@ -143,9 +135,7 @@ export class StatsProvider implements vscode.TreeDataProvider<StatsTreeItem>, vs
   /** Set loading state. */
   setLoading(loading: boolean): void {
     this.isLoading = loading;
-    if (loading) {
-      this.onDidChangeTreeDataEmitter.fire(undefined);
-    }
+    this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
   /** Clear stats (e.g., on logout). */

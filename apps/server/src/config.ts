@@ -34,7 +34,11 @@ const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().min(1, 'GITHUB_CLIENT_SECRET is required'),
   GITHUB_CALLBACK_URL: z.string().url(),
   /* GitHub Webhooks (optional - for Gamification feature) */
-  GITHUB_WEBHOOK_SECRET: z.string().min(8).optional(),
+  GITHUB_WEBHOOK_SECRET: z
+    .string()
+    .trim()
+    .min(32, 'GITHUB_WEBHOOK_SECRET must be at least 32 characters')
+    .optional(),
   /* Logging */
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });

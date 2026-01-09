@@ -28,8 +28,14 @@ import { broadcastToUsers } from '@/ws/handler';
 /** Schema for session recording payload. */
 const SessionPayloadSchema = z.object({
   sessionDuration: z.number().int().min(0).max(86400), // Max 24 hours
-  language: z.string().optional(),
-  project: z.string().optional(),
+  language: z.string().max(255).optional(),
+  project: z.string().max(255).optional(),
+});
+
+/** Schema for achievements query with pagination. */
+const AchievementsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().optional(),
 });
 
 /** Allowlist of known programming languages to prevent unbounded Redis hash growth. */
@@ -103,6 +109,30 @@ function calculateStreakStatus(lastActiveDate: string | null): StreakInfo['strea
   return 'broken';
 }
 
+/** Get yesterday's date in YYYY-MM-DD format (UTC) for Lua script timezone safety. */
+function getYesterdayDate(): string {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const parts = yesterday.toISOString().split('T');
+  return parts[0] ?? '';
+}
+
+/** Parse streak data from Redis hgetall result into StreakInfo. */
+function parseStreakData(data: Record<string, string> | null): StreakInfo {
+  const currentStreak = parseInt(data?.count ?? '0', 10);
+  const longestStreak = parseInt(data?.longest ?? '0', 10);
+  const lastActiveDate = data?.lastDate ?? null;
+  const streakStatus = calculateStreakStatus(lastActiveDate);
+
+  return {
+    currentStreak,
+    longestStreak,
+    lastActiveDate,
+    isActiveToday: streakStatus === 'active',
+    streakStatus,
+  };
+}
+
 /** Registers stats routes on the Fastify instance. */
 export function statsRoutes(app: FastifyInstance): void {
   const db = getDb();
@@ -137,19 +167,8 @@ export function statsRoutes(app: FastifyInstance): void {
       const todaySessionStr = results?.[1]?.[1] as string | null;
       const todaySession = todaySessionStr ? parseInt(todaySessionStr, 10) : 0;
 
-      // Build streak info
-      const currentStreak = parseInt(streakData?.count ?? '0', 10);
-      const longestStreak = parseInt(streakData?.longest ?? '0', 10);
-      const lastActiveDate = streakData?.lastDate ?? null;
-      const streakStatus = calculateStreakStatus(lastActiveDate);
-
-      const streak: StreakInfo = {
-        currentStreak,
-        longestStreak,
-        lastActiveDate,
-        isActiveToday: streakStatus === 'active',
-        streakStatus,
-      };
+      // Build streak info using shared helper
+      const streak = parseStreakData(streakData);
 
       // Get weekly stats from PostgreSQL
       const weekStart = getWeekStart();
@@ -210,19 +229,7 @@ export function statsRoutes(app: FastifyInstance): void {
       const redis = getRedis();
 
       const streakData = await redis.hgetall(REDIS_KEYS.streakData(userId));
-
-      const currentStreak = parseInt(streakData.count ?? '0', 10);
-      const longestStreak = parseInt(streakData.longest ?? '0', 10);
-      const lastActiveDate = streakData.lastDate ?? null;
-      const streakStatus = calculateStreakStatus(lastActiveDate);
-
-      const streak: StreakInfo = {
-        currentStreak,
-        longestStreak,
-        lastActiveDate,
-        isActiveToday: streakStatus === 'active',
-        streakStatus,
-      };
+      const streak = parseStreakData(streakData);
 
       return reply.send({ data: streak });
     }
@@ -247,14 +254,16 @@ export function statsRoutes(app: FastifyInstance): void {
 
       const { sessionDuration, language, project } = result.data;
       const today = getTodayDate();
+      const yesterday = getYesterdayDate();
       const redis = getRedis();
 
-      // Lua script for atomic streak update
+      // Lua script for atomic streak update (UTC-safe: uses string comparison)
       // Returns: [newStreak, shouldCheckAchievements] - 1 if streak was updated, 0 otherwise
       const STREAK_UPDATE_SCRIPT = `
       local streakKey = KEYS[1]
       local today = ARGV[1]
       local streakTtl = tonumber(ARGV[2])
+      local yesterday = ARGV[3]
 
       -- Read current streak data
       local lastDate = redis.call('HGET', streakKey, 'lastDate')
@@ -266,21 +275,12 @@ export function statsRoutes(app: FastifyInstance): void {
         return {count, 0}
       end
 
-      -- Calculate new streak
+      -- Calculate new streak using UTC-safe string comparison
       local newStreak = 1
-      if lastDate then
-        -- Parse dates and calculate difference
-        local ly, lm, ld = lastDate:match('(%d+)-(%d+)-(%d+)')
-        local ty, tm, td = today:match('(%d+)-(%d+)-(%d+)')
-        local lastTime = os.time({year=ly, month=lm, day=ld})
-        local todayTime = os.time({year=ty, month=tm, day=td})
-        local daysDiff = math.floor((todayTime - lastTime) / 86400)
-
-        if daysDiff == 1 then
-          newStreak = count + 1
-        end
-        -- daysDiff > 1 means streak broken, reset to 1
+      if lastDate == yesterday then
+        newStreak = count + 1
       end
+      -- Any other date means streak broken, reset to 1
 
       local newLongest = math.max(newStreak, longest)
 
@@ -298,7 +298,8 @@ export function statsRoutes(app: FastifyInstance): void {
         1,
         streakKey,
         today,
-        (STREAK_TTL_SECONDS * 2).toString()
+        (STREAK_TTL_SECONDS * 2).toString(), // 50h TTL: 25h grace + 25h safety buffer
+        yesterday
       )) as [number, number];
 
       const newStreak = streakResult[0];
@@ -320,7 +321,7 @@ export function statsRoutes(app: FastifyInstance): void {
       pipeline.hincrby(REDIS_KEYS.networkIntensity(minute), 'count', 1);
       pipeline.expire(REDIS_KEYS.networkIntensity(minute), NETWORK_ACTIVITY_TTL_SECONDS);
 
-      // 5. Track language if provided (validate to prevent unbounded hash growth)
+      // 4. Track language if provided (validate to prevent unbounded hash growth)
       if (language) {
         const normalizedLang = language.toLowerCase().trim();
         const safeLang = LANGUAGE_ALLOWLIST.has(normalizedLang) ? normalizedLang : 'other';
@@ -395,20 +396,38 @@ export function statsRoutes(app: FastifyInstance): void {
   );
 
   /**
-   * GET /stats/achievements - Get all user achievements
+   * GET /stats/achievements - Get all user achievements (paginated)
    */
   app.get(
     '/achievements',
     { onRequest: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { userId } = request.user as { userId: string };
+      const queryResult = AchievementsQuerySchema.safeParse(request.query);
+
+      if (!queryResult.success) {
+        return reply.status(400).send({
+          error: { code: 'INVALID_QUERY', message: 'Invalid query parameters' },
+        });
+      }
+
+      const { limit, cursor } = queryResult.data;
 
       const achievementRecords = await db.achievement.findMany({
         where: { userId },
         orderBy: { earnedAt: 'desc' },
+        take: limit + 1, // Fetch one extra to check if there's more
+        ...(cursor && {
+          cursor: { id: cursor },
+          skip: 1, // Skip the cursor item itself
+        }),
       });
 
-      const achievements: AchievementDTO[] = achievementRecords.map((a) => ({
+      const hasMore = achievementRecords.length > limit;
+      const items = hasMore ? achievementRecords.slice(0, limit) : achievementRecords;
+      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
+
+      const achievements: AchievementDTO[] = items.map((a) => ({
         id: a.id,
         type: a.type as AchievementDTO['type'],
         title: a.title,
@@ -416,7 +435,13 @@ export function statsRoutes(app: FastifyInstance): void {
         earnedAt: a.earnedAt.toISOString(),
       }));
 
-      return reply.send({ data: achievements });
+      return reply.send({
+        data: achievements,
+        pagination: {
+          hasMore,
+          nextCursor,
+        },
+      });
     }
   );
 
@@ -477,7 +502,7 @@ export function statsRoutes(app: FastifyInstance): void {
             logger.info({ userId, streak, type: milestone.type }, 'Streak achievement earned');
           }
         }
-        break; // Only one achievement per streak update
+        // Continue checking for lower milestones that may not have been awarded
       }
     }
   }

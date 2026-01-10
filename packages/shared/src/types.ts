@@ -49,6 +49,10 @@ export interface ActivityPayload {
   sessionDuration: number;
   /** Coding intensity (0-100 based on keystroke velocity). */
   intensity?: Intensity;
+  /** SHA256 hash of project_root + relative_path (first 16 chars) for conflict detection */
+  fileHash?: string;
+  /** Team ID for conflict radar (required for TEAM tier users) */
+  teamId?: string;
 }
 
 /** User presence status with optional activity. */
@@ -250,4 +254,3 @@ export interface UserStatsDTO {
   /** Recent achievements (latest 5) */
   recentAchievements: AchievementDTO[];
 }
-

@@ -30,6 +30,10 @@ export const ActivityPayloadSchema = z.object({
   workspace: z.string().max(255).optional(),
   sessionDuration: z.number().int().min(0),
   intensity: z.number().int().min(0).max(100).optional(),
+  /** SHA256 hash of file path for conflict detection (Phase 3) */
+  fileHash: z.string().max(64).optional(),
+  /** Team ID for conflict radar (Phase 3) */
+  teamId: z.string().optional(),
 });
 
 export const UserStatusSchema = z.object({

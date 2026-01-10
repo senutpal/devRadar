@@ -32,6 +32,9 @@ model User {
   achievements Achievement[]
   weeklyStats  WeeklyStats[]
 
+  // Phase 3: B2B & Teams
+  sentTeamInvitations TeamInvitation[] @relation("SentTeamInvitations")
+
   @@index([username])
   @@index([githubId])
 }
@@ -117,6 +120,10 @@ model Team {
   owner   User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members TeamMember[]
 
+  // Phase 3: B2B & Teams
+  invitations    TeamInvitation[]
+  slackWorkspace SlackWorkspace?
+
   @@index([slug])
   @@index([ownerId])
 }
@@ -152,4 +159,54 @@ enum FriendRequestStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+// ============================================================================
+// Phase 3: B2B & Teams
+// ============================================================================
+
+/// Team invitation for adding members via email link.
+model TeamInvitation {
+  id        String           @id @default(cuid())
+  teamId    String
+  email     String
+  role      Role             @default(MEMBER)
+  token     String           @unique // Cryptographically secure token for invite link
+  expiresAt DateTime         // Token expiration (e.g., 7 days from creation)
+  status    InvitationStatus @default(PENDING)
+  inviterId String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter User @relation("SentTeamInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
+}
+
+/// Slack workspace integration for team summaries and commands.
+model SlackWorkspace {
+  id               String   @id @default(cuid())
+  slackWorkspaceId String   @unique // Slack's workspace/team ID (T01234567)
+  slackTeamName    String            // Human-readable workspace name
+  accessToken      String            // Bot OAuth token (encrypted at rest in production)
+  botUserId        String?           // Slack bot user ID
+  channelId        String?           // Default channel for daily summaries
+  teamId           String   @unique  // One Slack workspace per DevRadar team
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([slackWorkspaceId])
 }

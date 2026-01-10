@@ -5,6 +5,31 @@ All notable changes to the DevRadar extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-10
+
+### Added
+
+- **B2B Team Features** (Backend):
+  - Team management with invitations and role-based access
+  - Merge Conflict Radar - detects when team members edit the same file
+  - Slack integration for team status updates and `/devradar status` command
+- **Conflict Alerts**: Real-time warnings when multiple users edit the same file
+- **Team Invitations**: Token-based invitation system with expiration
+
+### Changed
+
+- `ActivityPayload` now includes `fileHash` and `teamId` for conflict detection
+- WebSocket connections now track user's primary team
+
+### Technical
+
+- New routes: `/api/v1/teams/*`, `/slack/*`
+- New Prisma models: `TeamInvitation`, `SlackWorkspace`, `InvitationStatus`
+- Redis Sets for tracking concurrent file editors
+- Slack OAuth 2.0 and signature verification
+
+---
+
 ## [0.3.0] - 2026-01-09
 
 ### Added

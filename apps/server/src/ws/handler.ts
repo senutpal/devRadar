@@ -28,6 +28,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket as WsSocket } from 'ws';
 
 import { logger, createChildLogger } from '@/lib/logger';
+import { checkConflicts, clearAllUserEditing } from '@/services/conflictRadar';
 import { getDb } from '@/services/db';
 import { setPresence, getPresences, deletePresence, getRedisSubscriber } from '@/services/redis';
 import { WsCloseCodes } from '@/ws/types';
@@ -196,6 +197,27 @@ async function handleStatusUpdate(
     activity: activity as Record<string, unknown> | undefined,
     updatedAt: Date.now(),
   });
+
+  /* Phase 3: Check for file conflicts if user is in a team */
+  const activityRecord = activity as Record<string, unknown> | undefined;
+  if (ws.teamId && activityRecord?.fileHash) {
+    const fileHash = activityRecord.fileHash as string;
+    const conflictResult = await checkConflicts(ws.userId, ws.teamId, fileHash);
+
+    if (conflictResult.hasConflict) {
+      /* Broadcast CONFLICT_ALERT to all editors (including current user) */
+      for (const editorId of conflictResult.editors) {
+        const editorWs = connections.get(editorId);
+        if (editorWs && editorWs.readyState === editorWs.OPEN) {
+          send(editorWs, 'CONFLICT_ALERT', {
+            fileHash,
+            editors: conflictResult.editors,
+            teamId: ws.teamId,
+          });
+        }
+      }
+    }
+  }
 }
 
 function handlePoke(ws: AuthenticatedWebSocket, payload: unknown, correlationId?: string): void {
@@ -299,6 +321,10 @@ async function handleClose(ws: AuthenticatedWebSocket, code: number): Promise<vo
       });
     }
   }, 60_000);
+  /* Phase 3: Clear editing state for conflict radar */
+  if (ws.teamId) {
+    await clearAllUserEditing(ws.userId, ws.teamId);
+  }
   /* Unsubscribe from friend channels using the global subscription tracker */
   await unsubscribeFromFriends(ws);
 }
@@ -345,6 +371,26 @@ export function registerWebSocketHandler(app: FastifyInstance): void {
         ws.lastHeartbeat = Date.now();
         /* Get user's friends */
         ws.friendIds = await getUserFriendIds(userId);
+        /* Phase 3: Get user's primary team for conflict radar */
+        const prisma = getDb();
+        const teamMembership = await prisma.teamMember.findFirst({
+          where: { userId },
+          orderBy: { joinedAt: 'asc' },
+          select: { teamId: true },
+        });
+        if (teamMembership) {
+          ws.teamId = teamMembership.teamId;
+        } else {
+          /* Check if user owns a team */
+          const ownedTeam = await prisma.team.findFirst({
+            where: { ownerId: userId },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true },
+          });
+          if (ownedTeam) {
+            ws.teamId = ownedTeam.id;
+          }
+        }
         /* Store connection */
         const existingConnection = connections.get(userId);
         if (existingConnection) {

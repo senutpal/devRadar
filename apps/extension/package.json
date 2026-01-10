@@ -2,7 +2,7 @@
   "name": "devradar",
   "displayName": "DevRadar",
   "description": "See what your friends are coding in real-time",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "devradar",
   "license": "AGPL-3.0-or-later",
   "private": true,

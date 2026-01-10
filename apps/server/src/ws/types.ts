@@ -13,6 +13,9 @@ export interface AuthenticatedWebSocket extends WebSocket {
   /** User's friends (following) for presence subscriptions */
   friendIds: string[];
 
+  /** User's primary team ID for conflict radar (Phase 3) */
+  teamId?: string;
+
   /** Whether the connection is authenticated */
   isAuthenticated: boolean;
 

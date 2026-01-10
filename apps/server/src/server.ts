@@ -1,13 +1,16 @@
-/*** DevRadar Server
+/**
+ * DevRadar server entry point.
  *
- * Main entry point for the Fastify HTTP/WebSocket server.
+ * Bootstraps and configures the Fastify HTTP and WebSocket server, registers
+ * all middleware and routes, and manages application lifecycle concerns such
+ * as startup validation, health checks, logging, and graceful shutdown.
  *
- * Architecture:
- * - Fastify 5 for HTTP with plugin-based extensibility
- * - @fastify/websocket for real-time presence
- * - Prisma 7 for PostgreSQL database
- * - ioredis for Redis pub/sub
- * - Pino for structured logging
+ * Architecture overview:
+ * - Fastify for HTTP with plugin-based extensibility
+ * - WebSockets for real-time presence and collaboration
+ * - PostgreSQL via Prisma for persistent storage
+ * - Redis for caching, pub/sub, and ephemeral state
+ * - Pino for structured, high-performance logging
  */
 
 import fastifyCookie from '@fastify/cookie';
@@ -25,48 +28,55 @@ import { authRoutes } from '@/routes/auth';
 import { friendRequestRoutes } from '@/routes/friendRequests';
 import { friendRoutes } from '@/routes/friends';
 import { leaderboardRoutes } from '@/routes/leaderboards';
+import { slackRoutes } from '@/routes/slack';
 import { statsRoutes } from '@/routes/stats';
+import { teamRoutes } from '@/routes/teams';
 import { userRoutes } from '@/routes/users';
 import { webhookRoutes } from '@/routes/webhooks';
 import { connectDb, disconnectDb, isDbHealthy } from '@/services/db';
 import { connectRedis, disconnectRedis, isRedisHealthy } from '@/services/redis';
 import { registerWebSocketHandler, getConnectionCount } from '@/ws/handler';
 
-/** Configures Fastify with all plugins, routes, and middleware. */
+/**
+ * Builds and configures the Fastify application instance.
+ *
+ * This function registers all core plugins, middleware, routes, authentication
+ * mechanisms, error handling, and observability hooks. It does not start the
+ * HTTP server or connect external services.
+ *
+ * @returns A fully configured Fastify application instance
+ */
 async function buildServer() {
   const app = Fastify({
-    logger: false, // We use our own Pino logger
+    logger: false,
     trustProxy: isProduction,
-    disableRequestLogging: true, // We'll log requests ourselves
+    disableRequestLogging: true,
   });
-  /* CORS - Configure based on environment */
+
   await app.register(fastifyCors, {
-    origin: isDevelopment
-      ? true // Allow all in development
-      : ['https://devradar.io', /\.devradar\.io$/],
+    origin: isDevelopment ? true : ['https://devradar.io', /\.devradar\.io$/],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
-  /* Cookie support (for OAuth CSRF state) */
+
   await app.register(fastifyCookie);
-  /* Security headers */
+
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: isProduction,
-    crossOriginEmbedderPolicy: false, // Required for some OAuth flows
+    crossOriginEmbedderPolicy: false,
   });
-  /* JWT authentication */
+
   await app.register(fastifyJwt, {
     secret: env.JWT_SECRET,
     sign: {
       expiresIn: env.JWT_EXPIRES_IN,
     },
   });
-  /* Rate limiting */
+
   await app.register(fastifyRateLimit, {
-    max: isProduction ? 100 : 1000, // More lenient in development
+    max: isProduction ? 100 : 1000,
     timeWindow: '1 minute',
     keyGenerator: (request) => {
-      /* Use user ID if authenticated, otherwise IP */
       const user = request.user as { userId?: string } | undefined;
       return user?.userId ?? request.ip;
     },
@@ -77,10 +87,10 @@ async function buildServer() {
       },
     }),
   });
-  /* WebSocket support */
+
   await app.register(fastifyWebsocket, {
     options: {
-      maxPayload: 1024 * 64, // 64KB max message size
+      maxPayload: 1024 * 64,
       clientTracking: true,
     },
   });
@@ -88,7 +98,7 @@ async function buildServer() {
   app.decorate('authenticate', async (request: FastifyRequest, _reply: FastifyReply) => {
     try {
       await request.jwtVerify();
-      /* Check if token is blacklisted (for logout support) */
+
       const authHeader = request.headers.authorization;
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.slice(7);
@@ -107,31 +117,25 @@ async function buildServer() {
   });
 
   app.addHook('onRequest', (request, _reply, done) => {
-    /* Generate trace ID for request correlation */
     const existingTraceId = request.headers['x-trace-id'] as string | undefined;
     const traceId = existingTraceId ?? crypto.randomUUID();
     request.headers['x-trace-id'] = traceId;
-    /* Attach child logger with trace ID */
     (request as FastifyRequest & { log: typeof logger }).log = logger.child({ traceId });
     done();
   });
 
   app.addHook('onResponse', (request, reply, done) => {
-    const { method, url } = request;
-    const { statusCode } = reply;
-    const responseTime = reply.elapsedTime;
-    /* Don't log health checks to reduce noise */
-    if (url === '/health') {
+    if (request.url === '/health') {
       done();
       return;
     }
 
     logger.info(
       {
-        method,
-        url,
-        statusCode,
-        responseTime: `${responseTime.toFixed(2)}ms`,
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        responseTime: `${reply.elapsedTime.toFixed(2)}ms`,
         traceId: request.headers['x-trace-id'],
       },
       'Request completed'
@@ -144,16 +148,9 @@ async function buildServer() {
     const traceId = request.headers['x-trace-id'] as string;
 
     appError.traceId = traceId;
-    /* Log based on error type */
+
     if (appError.isOperational) {
-      logger.warn(
-        {
-          code: appError.code,
-          message: appError.message,
-          traceId,
-        },
-        'Operational error'
-      );
+      logger.warn({ code: appError.code, message: appError.message, traceId }, 'Operational error');
     } else {
       logger.error(
         {
@@ -165,7 +162,7 @@ async function buildServer() {
         'Unexpected error'
       );
     }
-    /* Send error response */
+
     return reply.status(appError.statusCode).send({
       error: appError.toJSON(),
     });
@@ -176,7 +173,7 @@ async function buildServer() {
 
     const status = dbHealthy && redisHealthy ? 'healthy' : 'degraded';
 
-    const health = {
+    return reply.status(status === 'healthy' ? 200 : 503).send({
       status,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
@@ -188,97 +185,90 @@ async function buildServer() {
       connections: {
         websocket: getConnectionCount(),
       },
-    };
-
-    const statusCode = status === 'healthy' ? 200 : 503;
-    return reply.status(statusCode).send(health);
+    });
   });
 
-  /* Prefix all API routes with /api/v1 */
   app.register(
     (api, _opts, done) => {
       api.register(userRoutes, { prefix: '/users' });
       api.register(friendRoutes, { prefix: '/friends' });
       api.register(friendRequestRoutes, { prefix: '/friend-requests' });
-      // Phase 2: Gamification routes
       api.register(statsRoutes, { prefix: '/stats' });
       api.register(leaderboardRoutes, { prefix: '/leaderboards' });
+      api.register(teamRoutes, { prefix: '/teams' });
       done();
     },
     { prefix: '/api/v1' }
   );
-  /* Auth routes at root for OAuth redirects (GITHUB_CALLBACK_URL should use /auth/callback) */
+
   app.register(authRoutes, { prefix: '/auth' });
-  /* Webhooks at root for external services (GitHub) */
   app.register(webhookRoutes, { prefix: '/webhooks' });
+  app.register(slackRoutes, { prefix: '/slack' });
+
   registerWebSocketHandler(app);
 
   return app;
 }
 
-/** Starts the server and sets up graceful shutdown handlers. */
+/**
+ * Starts the HTTP server and manages the application lifecycle.
+ *
+ * This function initializes the Fastify server, establishes connections to
+ * external services, begins listening for incoming requests, and registers
+ * graceful shutdown handlers for process termination signals.
+ *
+ * @throws If server startup or service initialization fails
+ */
 async function start(): Promise<void> {
   let app: Awaited<ReturnType<typeof buildServer>> | null = null;
 
   try {
-    /* Build server */
     app = await buildServer();
-    /* Connect to services */
+
     logger.info('Connecting to services...');
     await Promise.all([connectDb(), connectRedis()]);
-    /* Start listening */
+
     await app.listen({
       host: env.HOST,
       port: env.PORT,
     });
 
-    const serverUrl = `http://${env.HOST}:${String(env.PORT)}`;
     logger.info(
       {
         host: env.HOST,
         port: env.PORT,
         environment: env.NODE_ENV,
       },
-      `🚀 DevRadar server started at ${serverUrl}`
+      'DevRadar server started'
     );
 
     const shutdown = async (signal: string): Promise<void> => {
       logger.info({ signal }, 'Shutdown signal received');
-      /* Set a timeout for graceful shutdown */
-      const shutdownTimeout = setTimeout(() => {
-        logger.error('Graceful shutdown timed out, forcing exit');
+
+      const timeout = setTimeout(() => {
+        logger.error('Graceful shutdown timed out');
         /* eslint-disable-next-line no-process-exit */
         process.exit(1);
       }, 30_000);
 
       try {
-        await Promise.all([
-          app?.close().then(() => {
-            logger.info('HTTP server closed');
-          }),
-          disconnectDb(),
-          disconnectRedis(),
-        ]);
+        await Promise.all([app?.close(), disconnectDb(), disconnectRedis()]);
 
-        clearTimeout(shutdownTimeout);
+        clearTimeout(timeout);
         logger.info('Graceful shutdown complete');
         /* eslint-disable-next-line no-process-exit */
         process.exit(0);
-      } catch (error: unknown) {
+      } catch (error) {
         logger.error({ error }, 'Error during shutdown');
-        clearTimeout(shutdownTimeout);
+        clearTimeout(timeout);
         /* eslint-disable-next-line no-process-exit */
         process.exit(1);
       }
     };
 
-    process.on('SIGTERM', () => {
-      void shutdown('SIGTERM');
-    });
-    process.on('SIGINT', () => {
-      void shutdown('SIGINT');
-    });
-    /* Handle uncaught errors - exit immediately, don't attempt graceful shutdown */
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+
     process.on('uncaughtException', (error) => {
       logger.fatal({ error }, 'Uncaught exception');
       /* eslint-disable-next-line no-process-exit */
@@ -295,5 +285,6 @@ async function start(): Promise<void> {
     throw error;
   }
 }
-/* Start the server */
+
+/** Application entry point. */
 void start();

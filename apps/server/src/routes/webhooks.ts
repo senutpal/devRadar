@@ -129,7 +129,6 @@ export function webhookRoutes(app: FastifyInstance): void {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      // 1. Validate raw body is available (required for signature verification)
       const rawRequest = request as RawBodyRequest;
       if (!rawRequest.rawBody) {
         logger.error('Raw body not available - server misconfiguration');
@@ -139,7 +138,6 @@ export function webhookRoutes(app: FastifyInstance): void {
       }
       const rawBody = rawRequest.rawBody;
 
-      // 2. Extract headers safely (handles string[] case)
       const signature = getHeader(request, 'x-hub-signature-256');
       const event = getHeader(request, 'x-github-event');
       const deliveryId = getHeader(request, 'x-github-delivery');
@@ -156,7 +154,6 @@ export function webhookRoutes(app: FastifyInstance): void {
         return reply.status(500).send({ error: 'Webhook secret not configured' });
       }
 
-      // Verify the signature
       if (!verifyGitHubSignature(rawBody, signature, secret)) {
         logger.warn({ deliveryId }, 'Invalid GitHub webhook signature');
         return reply.status(401).send({ error: 'Invalid signature' });

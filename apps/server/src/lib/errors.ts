@@ -1,56 +1,62 @@
 /**
- * Custom Error Classes
+ * Application Error Hierarchy.
  *
- * Hierarchical error system per rules/09_ERROR_HANDLING.md.
- * Distinguishes operational errors (expected) from programming bugs.
+ * Errors are categorized into:
+ * - Operational errors (expected, recoverable)
+ * - Programming errors (unexpected, non-recoverable)
  */
 
 /**
  * Base application error.
- * All domain errors extend from this for consistent handling.
+ *
+ * All domain-specific errors must extend this class to ensure
+ * consistent error handling, logging, and API responses.
  */
 export abstract class AppError extends Error {
-  /** Error code for programmatic handling */
+  /** Stable error code for programmatic handling */
   abstract readonly code: string;
 
-  /** HTTP status code */
+  /** Associated HTTP status code */
   abstract readonly statusCode: number;
 
-  /** Whether this is an operational error (expected) vs programming error */
+  /** Indicates whether the error is expected and recoverable */
   abstract readonly isOperational: boolean;
 
-  /** ISO timestamp when error occurred */
+  /** ISO-8601 timestamp when the error was created */
   readonly timestamp: string;
 
-  /** Optional trace ID for correlation */
+  /** Optional trace identifier for request correlation */
   traceId?: string;
 
-  /** Additional error details */
-  details?: Record<string, unknown> | undefined;
+  /** Optional structured error details */
+  details?: Record<string, unknown>;
 
   constructor(message: string, options?: { cause?: Error; details?: Record<string, unknown> }) {
     super(message, { cause: options?.cause });
     this.name = this.constructor.name;
     this.timestamp = new Date().toISOString();
+
     if (options?.details) {
       this.details = options.details;
     }
-    /* V8-specific: guard against environments without captureStackTrace */
+
+    /* Capture stack trace when supported (V8 environments) */
     if (
       typeof (Error as unknown as { captureStackTrace?: unknown }).captureStackTrace === 'function'
     ) {
       (
-        Error as unknown as { captureStackTrace: (target: Error, constructor: unknown) => void }
+        Error as unknown as {
+          captureStackTrace: (target: Error, constructor: unknown) => void;
+        }
       ).captureStackTrace(this, this.constructor);
-    } else {
-      const fallbackStack = new Error().stack;
-      if (fallbackStack) {
-        this.stack = fallbackStack;
-      }
     }
   }
 
-  /** Serializes error for API response (excludes stack traces). */
+  /**
+   * Serializes the error for API responses.
+   *
+   * Stack traces and internal metadata are intentionally excluded.
+   */
   toJSON(): Record<string, unknown> {
     return {
       code: this.code,
@@ -61,11 +67,14 @@ export abstract class AppError extends Error {
     };
   }
 }
-/* =================== */
-/* Operational Errors (Expected, Recoverable) */
-/* =================== */
 
-/** 400 Bad Request - Client sent invalid data. */
+/* Operational Errors (Expected, Recoverable) */
+
+/**
+ * 400 Bad Request.
+ *
+ * Indicates invalid client input or failed validation.
+ */
 export class ValidationError extends AppError {
   readonly code = 'VALIDATION_ERROR';
   readonly statusCode = 400;
@@ -73,9 +82,14 @@ export class ValidationError extends AppError {
 
   constructor(
     message: string,
-    options?: { cause?: Error; details?: Record<string, unknown>; fields?: FieldError[] }
+    options?: {
+      cause?: Error;
+      details?: Record<string, unknown>;
+      fields?: FieldError[];
+    }
   ) {
     super(message, options);
+
     if (options?.fields) {
       this.details = { ...this.details, fields: options.fields };
     }
@@ -83,7 +97,7 @@ export class ValidationError extends AppError {
 }
 
 /**
- * Field-level validation error detail
+ * Field-level validation error metadata.
  */
 export interface FieldError {
   field: string;
@@ -92,7 +106,9 @@ export interface FieldError {
 }
 
 /**
- * 401 Unauthorized - Missing or invalid authentication
+ * 401 Unauthorized.
+ *
+ * Indicates missing or invalid authentication credentials.
  */
 export class AuthenticationError extends AppError {
   readonly code = 'AUTHENTICATION_ERROR';
@@ -105,7 +121,9 @@ export class AuthenticationError extends AppError {
 }
 
 /**
- * 403 Forbidden - Authenticated but not authorized
+ * 403 Forbidden.
+ *
+ * Indicates insufficient permissions for the requested operation.
  */
 export class AuthorizationError extends AppError {
   readonly code = 'AUTHORIZATION_ERROR';
@@ -118,7 +136,14 @@ export class AuthorizationError extends AppError {
 }
 
 /**
- * 404 Not Found - Resource does not exist
+ * Alias for {@link AuthorizationError}.
+ */
+export const ForbiddenError = AuthorizationError;
+
+/**
+ * 404 Not Found.
+ *
+ * Indicates that a requested resource does not exist.
  */
 export class NotFoundError extends AppError {
   readonly code = 'NOT_FOUND';
@@ -131,7 +156,9 @@ export class NotFoundError extends AppError {
 }
 
 /**
- * 409 Conflict - Resource already exists or state conflict
+ * 409 Conflict.
+ *
+ * Indicates a resource state conflict or duplicate entity.
  */
 export class ConflictError extends AppError {
   readonly code = 'CONFLICT';
@@ -147,38 +174,47 @@ export class ConflictError extends AppError {
 }
 
 /**
- * 429 Too Many Requests - Rate limit exceeded
+ * 429 Too Many Requests.
+ *
+ * Indicates that a rate limit has been exceeded.
  */
 export class RateLimitError extends AppError {
   readonly code = 'RATE_LIMIT_EXCEEDED';
   readonly statusCode = 429;
   readonly isOperational = true;
 
-  /** Seconds until rate limit resets */
-  retryAfter?: number | undefined;
+  /** Number of seconds until the rate limit resets */
+  retryAfter?: number;
 
   constructor(message = 'Too many requests. Please try again later.', retryAfter?: number) {
     super(message);
+
     if (retryAfter !== undefined) {
       this.retryAfter = retryAfter;
     }
   }
 
   /**
-   * Override toJSON to include retryAfter in API responses ***/
+   * Serializes the error including rate-limit metadata.
+   */
   override toJSON(): Record<string, unknown> {
     const json = super.toJSON();
+
     if (this.retryAfter !== undefined) {
       json.retryAfter = this.retryAfter;
     }
+
     return json;
   }
 }
-/* =================== */
-/* Programming Errors (Unexpected, Non-Recoverable) */
-/* =================== */
 
-/** 500 Internal Server Error - Unexpected failure. */
+/* Programming Errors (Unexpected, Non-Recoverable) */
+
+/**
+ * 500 Internal Server Error.
+ *
+ * Indicates an unexpected application failure.
+ */
 export class InternalError extends AppError {
   readonly code = 'INTERNAL_ERROR';
   readonly statusCode = 500;
@@ -190,7 +226,9 @@ export class InternalError extends AppError {
 }
 
 /**
- * 503 Service Unavailable - External service failure
+ * 503 Service Unavailable.
+ *
+ * Indicates temporary failure of an external dependency.
  */
 export class ServiceUnavailableError extends AppError {
   readonly code = 'SERVICE_UNAVAILABLE';
@@ -201,21 +239,28 @@ export class ServiceUnavailableError extends AppError {
     super(`${service} is temporarily unavailable. Please try again later.`, options);
   }
 }
-/* =================== */
-/* Type Guards */
-/* =================== */
 
-/** Type guard for AppError instances. */
+/* Type Guards & Utilities */
+
+/**
+ * Determines whether a value is an {@link AppError}.
+ */
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
 
-/** Returns true if error is expected/recoverable. */
+/**
+ * Determines whether an error is operational and recoverable.
+ */
 export function isOperationalError(error: unknown): boolean {
   return isAppError(error) && error.isOperational;
 }
 
-/** Wraps unknown errors into AppError for consistent handling. */
+/**
+ * Normalizes unknown errors into an {@link AppError}.
+ *
+ * Ensures all thrown errors conform to the application error contract.
+ */
 export function toAppError(error: unknown): AppError {
   if (isAppError(error)) {
     return error;

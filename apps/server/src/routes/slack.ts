@@ -31,6 +31,12 @@ const CallbackQuerySchema = z.object({
   state: z.string().min(1, 'State is required'),
 });
 
+declare module 'fastify' {
+  interface FastifyRequest {
+    rawBody?: string | Buffer;
+  }
+}
+
 /* Slack slash command payload (form-urlencoded) */
 interface SlashCommandPayload {
   token: string;
@@ -56,6 +62,21 @@ export function slackRoutes(app: FastifyInstance): void {
     { parseAs: 'string' },
     (_req, body, done) => {
       done(null, body);
+    }
+  );
+
+  // Parse JSON and expose raw body for signature verification
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (req: FastifyRequest, body: string, done) => {
+      try {
+        const json = JSON.parse(body) as unknown;
+        req.rawBody = body;
+        done(null, json);
+      } catch (err) {
+        done(err as Error, undefined);
+      }
     }
   );
 
@@ -298,10 +319,10 @@ export function slackRoutes(app: FastifyInstance): void {
 
       const timestamp = request.headers['x-slack-request-timestamp'] as string;
       const signature = request.headers['x-slack-signature'] as string;
-      const bodyString = JSON.stringify(request.body);
+      const bodyString = request.rawBody?.toString();
 
-      if (!timestamp || !signature) {
-        throw new ForbiddenError('Missing Slack signature headers');
+      if (!timestamp || !signature || !bodyString) {
+        throw new ForbiddenError('Missing Slack signature headers or body');
       }
 
       if (!verifySlackRequest(env.SLACK_SIGNING_SECRET, timestamp, bodyString, signature)) {
@@ -382,22 +403,31 @@ export function slackRoutes(app: FastifyInstance): void {
 
       const { teamId } = paramsResult.data;
 
-      // Verify user is team owner
+      // Verify user is team owner or admin
       const team = await db.team.findUnique({
         where: { id: teamId },
-        select: { ownerId: true },
+        include: {
+          members: {
+            where: { userId },
+            select: { role: true },
+          },
+        },
       });
 
       if (!team) {
         throw new NotFoundError('Team', teamId);
       }
 
-      if (team.ownerId !== userId) {
-        throw new ForbiddenError('Only team owner can disconnect Slack');
+      const isOwner = team.ownerId === userId;
+      const membership = team.members[0];
+      const isAdmin = membership?.role === 'ADMIN' || membership?.role === 'OWNER';
+
+      if (!isOwner && !isAdmin) {
+        throw new ForbiddenError('Only team owner or admin can disconnect Slack');
       }
 
-      // Delete workspace connection
-      await db.slackWorkspace.delete({
+      // Delete workspace connection (safe delete)
+      await db.slackWorkspace.deleteMany({
         where: { teamId },
       });
 

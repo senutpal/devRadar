@@ -14,6 +14,7 @@
 import crypto from 'crypto';
 
 import { WebClient, type ChatPostMessageResponse } from '@slack/web-api';
+import { z } from 'zod';
 
 import type { KnownBlock } from '@slack/types';
 
@@ -132,12 +133,25 @@ export function getSlackInstallUrl(teamId: string, state: string): string {
   return `https://slack.com/oauth/v2/authorize?${params.toString()}`;
 }
 
+const SlackOAuthResponseSchema = z.object({
+  ok: z.literal(true),
+  access_token: z.string(),
+  team: z.object({
+    id: z.string(),
+    name: z.string(),
+  }),
+  bot_user_id: z.string(),
+});
+
 /**
  * Resolves the Slack OAuth redirect URI based on runtime environment.
  *
  * @returns Absolute redirect URI
  */
 function getSlackRedirectUri(): string {
+  if (env.API_BASE_URL) {
+    return `${env.API_BASE_URL}/slack/callback`;
+  }
   const baseUrl =
     env.NODE_ENV === 'production'
       ? 'https://api.devradar.io'
@@ -164,16 +178,21 @@ export async function handleSlackOAuthCallback(
   const db = getDb();
 
   const client = new WebClient();
-  const response = (await client.oauth.v2.access({
+  const rawResponse = await client.oauth.v2.access({
     client_id: env.SLACK_CLIENT_ID,
     client_secret: env.SLACK_CLIENT_SECRET,
     code,
     redirect_uri: getSlackRedirectUri(),
-  })) as SlackOAuthResponse;
+  });
 
-  if (!response.ok || !response.access_token) {
+  const validation = SlackOAuthResponseSchema.safeParse(rawResponse);
+
+  if (!validation.success) {
+    logger.error({ error: validation.error, rawResponse }, 'Invalid Slack OAuth response');
     throw new Error('Failed to exchange Slack OAuth code for token');
   }
+
+  const response = validation.data;
 
   // Verify team exists before upserting workspace
   const team = await db.team.findUnique({

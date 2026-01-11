@@ -105,10 +105,10 @@ importers:
         specifier: ^7.2.0
         version: 7.2.0(prisma@7.2.0(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3)
       '@slack/types':
-        specifier: ^2.19.0
+        specifier: ^2.16.0
         version: 2.19.0
       '@slack/web-api':
-        specifier: ^7.13.0
+        specifier: ^7.12.0
         version: 7.13.0
       dotenv:
         specifier: ^16.5.0

@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
+import { env } from '@/config';
 import {
   NotFoundError,
   ConflictError,
@@ -150,15 +151,13 @@ export function teamRoutes(app: FastifyInstance): void {
 
     const skip = (page - 1) * limit;
 
-    // Get teams where user is owner or member
-    const [ownedTeams, memberships, ownedCount, memberCount] = await Promise.all([
+    // Get all teams where user is owner or member (fetch all to handle deduping/sorting correctly)
+    const [ownedTeams, memberships] = await Promise.all([
       db.team.findMany({
         where: { ownerId: userId },
         include: {
           _count: { select: { members: true } },
         },
-        skip,
-        take: limit,
         orderBy: { createdAt: 'desc' },
       }),
       db.teamMember.findMany({
@@ -170,41 +169,64 @@ export function teamRoutes(app: FastifyInstance): void {
             },
           },
         },
-        skip,
-        take: limit,
       }),
-      db.team.count({ where: { ownerId: userId } }),
-      db.teamMember.count({ where: { userId } }),
     ]);
 
-    const teams = [
-      ...ownedTeams.map((t) => ({
+    // Merge and dedupe
+    interface MergedTeam {
+      id: string;
+      name: string;
+      slug: string;
+      role: 'OWNER' | 'ADMIN' | 'MEMBER';
+      memberCount: number;
+      createdAt: Date;
+    }
+    const teamMap = new Map<string, MergedTeam>();
+
+    ownedTeams.forEach((t) => {
+      teamMap.set(t.id, {
         id: t.id,
         name: t.name,
         slug: t.slug,
         role: 'OWNER' as const,
-        memberCount: t._count.members + 1, // +1 for owner
-        createdAt: t.createdAt.toISOString(),
-      })),
-      ...memberships.map((m) => ({
-        id: m.team.id,
-        name: m.team.name,
-        slug: m.team.slug,
-        role: m.role,
-        memberCount: m.team._count.members + 1,
-        createdAt: m.joinedAt.toISOString(),
-      })),
-    ];
+        memberCount: t._count.members + 1,
+        createdAt: new Date(t.createdAt),
+      });
+    });
 
-    const total = ownedCount + memberCount;
+    memberships.forEach((m) => {
+      // Owner role takes precedence if present in both lists
+      if (!teamMap.has(m.team.id) || teamMap.get(m.team.id)?.role !== 'OWNER') {
+        teamMap.set(m.team.id, {
+          id: m.team.id,
+          name: m.team.name,
+          slug: m.team.slug,
+          role: m.role,
+          memberCount: m.team._count.members + 1,
+          createdAt: new Date(m.joinedAt),
+        });
+      }
+    });
+
+    const allTeams = Array.from(teamMap.values());
+
+    // Sort by createdAt desc
+    allTeams.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // Apply pagination in memory
+    const total = allTeams.length;
+    const paginatedTeams = allTeams.slice(skip, skip + limit).map((t) => ({
+      ...t,
+      createdAt: t.createdAt.toISOString(),
+    }));
 
     return reply.send({
-      data: teams,
+      data: paginatedTeams,
       pagination: {
         page,
         limit,
         total,
-        hasMore: skip + teams.length < total,
+        hasMore: skip + paginatedTeams.length < total,
       },
     });
   });
@@ -517,8 +539,8 @@ export function teamRoutes(app: FastifyInstance): void {
           teamName: invitation.team.name,
           invitedBy: invitation.inviter.displayName ?? invitation.inviter.username,
           expiresAt: invitation.expiresAt.toISOString(),
-          // Include token for development/testing (in production, only send via email)
-          token: invitation.token,
+          // Include token only for development/testing
+          token: env.NODE_ENV !== 'production' ? invitation.token : undefined,
         },
       });
     }

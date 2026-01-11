@@ -31,9 +31,14 @@ export const ActivityPayloadSchema = z.object({
   sessionDuration: z.number().int().min(0),
   intensity: z.number().int().min(0).max(100).optional(),
   /** SHA256 hash of file path for conflict detection (Phase 3) */
-  fileHash: z.string().max(64).optional(),
+  /** SHA256 hash of file path for conflict detection (Phase 3) */
+  fileHash: z
+    .string()
+    .length(64)
+    .regex(/^[0-9a-fA-F]{64}$/)
+    .optional(),
   /** Team ID for conflict radar (Phase 3) */
-  teamId: z.string().optional(),
+  teamId: z.string().cuid().optional(),
 });
 
 export const UserStatusSchema = z.object({

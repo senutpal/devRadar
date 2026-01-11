@@ -49,7 +49,7 @@ export interface ActivityPayload {
   sessionDuration: number;
   /** Coding intensity (0-100 based on keystroke velocity). */
   intensity?: Intensity;
-  /** SHA256 hash of project_root + relative_path (first 16 chars) for conflict detection */
+  /** SHA256 hash of project_root + relative_path (full SHA256 hex 64 chars) for conflict detection */
   fileHash?: string;
   /** Team ID for conflict radar (required for TEAM tier users) */
   teamId?: string;

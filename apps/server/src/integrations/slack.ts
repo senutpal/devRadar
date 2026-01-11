@@ -18,6 +18,7 @@ import { WebClient, type ChatPostMessageResponse } from '@slack/web-api';
 import type { KnownBlock } from '@slack/types';
 
 import { env } from '@/config';
+import { encrypt, decrypt } from '@/lib/crypto';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
 import { getPresences } from '@/services/redis';
@@ -174,19 +175,29 @@ export async function handleSlackOAuthCallback(
     throw new Error('Failed to exchange Slack OAuth code for token');
   }
 
+  // Verify team exists before upserting workspace
+  const team = await db.team.findUnique({
+    where: { id: teamId },
+    select: { id: true },
+  });
+
+  if (!team) {
+    throw new Error('Team not found');
+  }
+
   await db.slackWorkspace.upsert({
     where: { teamId },
     create: {
       teamId,
       slackWorkspaceId: response.team.id,
       slackTeamName: response.team.name,
-      accessToken: response.access_token,
+      accessToken: encrypt(response.access_token),
       botUserId: response.bot_user_id,
     },
     update: {
       slackWorkspaceId: response.team.id,
       slackTeamName: response.team.name,
-      accessToken: response.access_token,
+      accessToken: encrypt(response.access_token),
       botUserId: response.bot_user_id,
     },
   });
@@ -224,7 +235,13 @@ export async function getSlackClient(teamId: string): Promise<WebClient | null> 
     return null;
   }
 
-  return new WebClient(workspace.accessToken);
+  try {
+    const accessToken = decrypt(workspace.accessToken);
+    return new WebClient(accessToken);
+  } catch (error) {
+    logger.error({ error, teamId }, 'Failed to decrypt Slack access token');
+    return null;
+  }
 }
 
 /**
@@ -400,7 +417,7 @@ export function formatStatusForSlack(status: TeamStatusSummary): KnownBlock[] {
     elements: [
       {
         type: 'mrkdwn',
-        text: `_Updated: ${new Date().toLocaleTimeString()}_`,
+        text: `_Updated: ${new Date().toISOString()}_`,
       },
     ],
   });

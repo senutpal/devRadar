@@ -24,7 +24,7 @@ import { broadcastToUsers } from '@/ws/handler';
 
 /** Extended request with raw body for signature verification. */
 interface RawBodyRequest extends FastifyRequest {
-  rawBody?: Buffer;
+  rawBody?: string | Buffer;
 }
 
 /** Zod schema for GitHub Issues webhook payload. */
@@ -136,7 +136,10 @@ export function webhookRoutes(app: FastifyInstance): void {
           error: 'Raw body required for signature verification. Server misconfiguration.',
         });
       }
-      const rawBody = rawRequest.rawBody;
+      const rawBody =
+        typeof rawRequest.rawBody === 'string'
+          ? Buffer.from(rawRequest.rawBody)
+          : rawRequest.rawBody;
 
       const signature = getHeader(request, 'x-hub-signature-256');
       const event = getHeader(request, 'x-github-event');

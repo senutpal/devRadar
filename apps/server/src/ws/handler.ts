@@ -14,6 +14,7 @@ import {
   PokePayloadSchema,
   REDIS_KEYS,
 } from '@devradar/shared';
+import { WebSocket } from 'ws';
 import { z } from 'zod';
 
 import type {
@@ -56,7 +57,7 @@ const channelSubscriptions = new Map<string, Set<string>>();
 let globalHandlerInitialized = false;
 
 function send(ws: WsSocket, type: string, payload: unknown, correlationId?: string): void {
-  if (ws.readyState !== ws.OPEN) return;
+  if (ws.readyState !== WebSocket.OPEN) return;
 
   const message: WsMessage = {
     type: type as WsMessage['type'],
@@ -103,7 +104,7 @@ function initializeGlobalMessageHandler(): void {
       /* Route message to all subscribed connections */
       for (const userId of subscribedUserIds) {
         const ws = connections.get(userId);
-        if (ws && ws.readyState === ws.OPEN) {
+        if (ws?.readyState === WebSocket.OPEN) {
           send(ws, 'FRIEND_STATUS', data);
         }
       }
@@ -208,7 +209,7 @@ async function handleStatusUpdate(
       /* Broadcast CONFLICT_ALERT to all editors (including current user) */
       for (const editorId of conflictResult.editors) {
         const editorWs = connections.get(editorId);
-        if (editorWs && editorWs.readyState === editorWs.OPEN) {
+        if (editorWs?.readyState === WebSocket.OPEN) {
           send(editorWs, 'CONFLICT_ALERT', {
             fileHash,
             editors: conflictResult.editors,
@@ -240,7 +241,7 @@ function handlePoke(ws: AuthenticatedWebSocket, payload: unknown, correlationId?
   /* Get target connection */
   const targetWs = connections.get(toUserId);
 
-  if (targetWs && targetWs.readyState === targetWs.OPEN) {
+  if (targetWs?.readyState === WebSocket.OPEN) {
     const pokePayload: PokePayload = {
       toUserId,
       fromUserId: ws.userId,
@@ -323,7 +324,7 @@ async function handleClose(ws: AuthenticatedWebSocket, code: number): Promise<vo
   }, 60_000);
   /* Phase 3: Clear editing state for conflict radar */
   if (ws.teamId) {
-    await clearAllUserEditing(ws.userId, ws.teamId);
+    void clearAllUserEditing(ws.userId, ws.teamId);
   }
   /* Unsubscribe from friend channels using the global subscription tracker */
   await unsubscribeFromFriends(ws);
@@ -371,24 +372,32 @@ export function registerWebSocketHandler(app: FastifyInstance): void {
         ws.lastHeartbeat = Date.now();
         /* Get user's friends */
         ws.friendIds = await getUserFriendIds(userId);
-        /* Phase 3: Get user's primary team for conflict radar */
+        /* Phase 3: Get user's primary team for conflict radar (only for TEAM tier users) */
         const prisma = getDb();
-        const teamMembership = await prisma.teamMember.findFirst({
-          where: { userId },
-          orderBy: { joinedAt: 'asc' },
-          select: { teamId: true },
+
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { tier: true },
         });
-        if (teamMembership) {
-          ws.teamId = teamMembership.teamId;
-        } else {
-          /* Check if user owns a team */
-          const ownedTeam = await prisma.team.findFirst({
-            where: { ownerId: userId },
-            orderBy: { createdAt: 'asc' },
-            select: { id: true },
+
+        if (user?.tier === 'TEAM') {
+          const teamMembership = await prisma.teamMember.findFirst({
+            where: { userId },
+            orderBy: { joinedAt: 'asc' },
+            select: { teamId: true },
           });
-          if (ownedTeam) {
-            ws.teamId = ownedTeam.id;
+          if (teamMembership) {
+            ws.teamId = teamMembership.teamId;
+          } else {
+            /* Check if user owns a team */
+            const ownedTeam = await prisma.team.findFirst({
+              where: { ownerId: userId },
+              orderBy: { createdAt: 'asc' },
+              select: { id: true },
+            });
+            if (ownedTeam) {
+              ws.teamId = ownedTeam.id;
+            }
           }
         }
         /* Store connection */
@@ -451,7 +460,7 @@ export function registerWebSocketHandler(app: FastifyInstance): void {
 export function broadcastToUsers(userIds: string[], type: string, payload: unknown): void {
   for (const userId of userIds) {
     const ws = connections.get(userId);
-    if (ws && ws.readyState === ws.OPEN) {
+    if (ws?.readyState === WebSocket.OPEN) {
       send(ws, type, payload);
     }
   }

@@ -51,6 +51,10 @@ const envSchema = z
     SLACK_CLIENT_SECRET: z.string().trim().min(1).optional(),
     SLACK_SIGNING_SECRET: z.string().trim().min(1).optional(),
 
+    /* Security & General */
+    ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be at least 32 characters'),
+    API_BASE_URL: z.string().url().optional(),
+
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   })
   .superRefine((val, ctx) => {

@@ -178,7 +178,7 @@ model TeamInvitation {
   teamId    String
   email     String
   role      Role             @default(MEMBER)
-  token     String           @unique // Cryptographically secure token for invite link
+  tokenHash String           @unique // SHA-256 hash of the invitation token
   expiresAt DateTime         // Token expiration (e.g., 7 days from creation)
   status    InvitationStatus @default(PENDING)
   inviterId String
@@ -190,7 +190,7 @@ model TeamInvitation {
 
   @@index([teamId])
   @@index([email])
-  @@index([token])
+  @@index([tokenHash])
   @@index([status])
   @@index([teamId, email, status])
 }

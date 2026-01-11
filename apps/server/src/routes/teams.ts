@@ -510,6 +510,7 @@ export function teamRoutes(app: FastifyInstance): void {
 
       // Create invitation (expires in 7 days)
       const token = generateInvitationToken();
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const invitation = await db.teamInvitation.create({
@@ -517,7 +518,7 @@ export function teamRoutes(app: FastifyInstance): void {
           teamId,
           email,
           role,
-          token,
+          tokenHash,
           expiresAt,
           inviterId: userId,
         },
@@ -540,7 +541,7 @@ export function teamRoutes(app: FastifyInstance): void {
           invitedBy: invitation.inviter.displayName ?? invitation.inviter.username,
           expiresAt: invitation.expiresAt.toISOString(),
           // Include token only for development/testing
-          token: env.NODE_ENV !== 'production' ? invitation.token : undefined,
+          token: env.NODE_ENV !== 'production' ? token : undefined,
         },
       });
     }
@@ -566,11 +567,13 @@ export function teamRoutes(app: FastifyInstance): void {
       const { id: teamId } = paramsResult.data;
       const { token } = bodyResult.data;
 
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
       // Find valid invitation
       const invitation = await db.teamInvitation.findFirst({
         where: {
           teamId,
-          token,
+          tokenHash,
           status: 'PENDING',
           expiresAt: { gt: new Date() },
         },
@@ -585,6 +588,14 @@ export function teamRoutes(app: FastifyInstance): void {
 
       // Verify email matches (or allow any authenticated user for now)
       // Note: Email verification could be added here for stricter access control
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+
+      if (user?.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+        throw new ForbiddenError('This invitation was sent to a different email address');
+      }
 
       // Check if already a member
       const existingMember = await db.teamMember.findUnique({

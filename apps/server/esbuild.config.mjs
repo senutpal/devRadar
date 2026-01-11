@@ -31,6 +31,11 @@ await esbuild.build({
     // Logging
     'pino',
     'pino-pretty',
+    // WebSockets and utilities
+    'ws',
+    '@slack/*',
+    'dotenv',
+    'zod',
   ],
 });
 

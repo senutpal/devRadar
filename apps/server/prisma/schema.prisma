@@ -192,6 +192,7 @@ model TeamInvitation {
   @@index([email])
   @@index([token])
   @@index([status])
+  @@index([teamId, email, status])
 }
 
 /// Slack workspace integration for team summaries and commands.

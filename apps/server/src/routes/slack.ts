@@ -4,6 +4,8 @@
  * Handles Slack OAuth flow and slash commands for team status.
  */
 
+import crypto from 'crypto';
+
 import { z } from 'zod';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
@@ -19,10 +21,6 @@ import {
 import { ValidationError, ForbiddenError, NotFoundError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
-
-/* ============================================================================
- * Validation Schemas
- * ============================================================================ */
 
 const InstallQuerySchema = z.object({
   teamId: z.string().min(1, 'Team ID is required'),
@@ -48,13 +46,18 @@ interface SlashCommandPayload {
   trigger_id: string;
 }
 
-/* ============================================================================
- * Route Handlers
- * ============================================================================ */
-
 /** Registers Slack routes on the Fastify instance. */
 export function slackRoutes(app: FastifyInstance): void {
   const db = getDb();
+
+  // Parse form-urlencoded body as string to preserve raw signature for /commands
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      done(null, body);
+    }
+  );
 
   // GET /install - Redirect to Slack OAuth
   app.get('/install', { onRequest: [app.authenticate] }, async (request, reply) => {
@@ -108,181 +111,216 @@ export function slackRoutes(app: FastifyInstance): void {
   });
 
   // GET /callback - OAuth callback from Slack
-  app.get('/callback', async (request, reply) => {
-    const queryResult = CallbackQuerySchema.safeParse(request.query);
-    if (!queryResult.success) {
-      throw new ValidationError('Invalid OAuth callback parameters');
+  app.get(
+    '/callback',
+    {
+      config: {
+        /* Rate limiting: 20 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit) */
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request, reply) => {
+      const queryResult = CallbackQuerySchema.safeParse(request.query);
+      if (!queryResult.success) {
+        throw new ValidationError('Invalid OAuth callback parameters');
+      }
+
+      const { code, state: stateJson } = queryResult.data;
+
+      // Parse state
+      let state: { teamId: string; csrf: string };
+      try {
+        state = JSON.parse(stateJson) as { teamId: string; csrf: string };
+      } catch {
+        throw new ValidationError('Invalid state parameter');
+      }
+
+      // Verify CSRF token
+      const csrfCookie = request.cookies.slack_csrf;
+      if (!csrfCookie || csrfCookie !== state.csrf) {
+        throw new ForbiddenError('Invalid CSRF token');
+      }
+
+      // Clear CSRF cookie
+      void reply.clearCookie('slack_csrf');
+
+      // Exchange code for token
+      const result = await handleSlackOAuthCallback(code, state.teamId);
+
+      logger.info(
+        { teamId: state.teamId, slackWorkspaceId: result.slackWorkspaceId },
+        'Slack OAuth completed'
+      );
+
+      // Redirect to success page (or return JSON in dev)
+      if (env.NODE_ENV === 'development') {
+        return reply.send({
+          success: true,
+          message: `Connected to Slack workspace: ${result.slackTeamName}`,
+          slackWorkspaceId: result.slackWorkspaceId,
+        });
+      }
+
+      // In production, redirect to dashboard
+      return reply.redirect(
+        `https://devradar.io/dashboard/team/${state.teamId}/settings?slack=connected`
+      );
     }
-
-    const { code, state: stateJson } = queryResult.data;
-
-    // Parse state
-    let state: { teamId: string; csrf: string };
-    try {
-      state = JSON.parse(stateJson) as { teamId: string; csrf: string };
-    } catch {
-      throw new ValidationError('Invalid state parameter');
-    }
-
-    // Verify CSRF token
-    const csrfCookie = request.cookies.slack_csrf;
-    if (!csrfCookie || csrfCookie !== state.csrf) {
-      throw new ForbiddenError('Invalid CSRF token');
-    }
-
-    // Clear CSRF cookie
-    void reply.clearCookie('slack_csrf');
-
-    // Exchange code for token
-    const result = await handleSlackOAuthCallback(code, state.teamId);
-
-    logger.info(
-      { teamId: state.teamId, slackWorkspaceId: result.slackWorkspaceId },
-      'Slack OAuth completed'
-    );
-
-    // Redirect to success page (or return JSON in dev)
-    if (env.NODE_ENV === 'development') {
-      return reply.send({
-        success: true,
-        message: `Connected to Slack workspace: ${result.slackTeamName}`,
-        slackWorkspaceId: result.slackWorkspaceId,
-      });
-    }
-
-    // In production, redirect to dashboard
-    return reply.redirect(
-      `https://devradar.io/dashboard/team/${state.teamId}/settings?slack=connected`
-    );
-  });
+  );
 
   // POST /commands - Handle slash commands (e.g., /devradar status)
-  app.post('/commands', async (request: FastifyRequest, reply: FastifyReply) => {
-    // Verify Slack signature
-    if (!env.SLACK_SIGNING_SECRET) {
-      throw new ForbiddenError('Slack signing secret not configured');
-    }
-
-    const timestamp = request.headers['x-slack-request-timestamp'] as string;
-    const signature = request.headers['x-slack-signature'] as string;
-    // Note: For proper signature verification, rawBody needs to be configured at server level
-    // For now, we'll re-stringify the body (suitable for form-urlencoded)
-    const bodyString =
-      typeof request.body === 'string'
-        ? request.body
-        : new URLSearchParams(request.body as Record<string, string>).toString();
-
-    if (!timestamp || !signature) {
-      throw new ForbiddenError('Missing Slack signature headers');
-    }
-
-    if (!verifySlackRequest(env.SLACK_SIGNING_SECRET, timestamp, bodyString, signature)) {
-      throw new ForbiddenError('Invalid Slack signature');
-    }
-
-    // Parse form data
-    const payload = request.body as SlashCommandPayload;
-    const command = payload.command;
-    const text = payload.text.trim().toLowerCase();
-
-    logger.info(
-      {
-        command,
-        text,
-        slackTeamId: payload.team_id,
-        userId: payload.user_id,
+  app.post(
+    '/commands',
+    {
+      config: {
+        /* Rate limiting: 60 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit) */
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+        },
       },
-      'Slash command received'
-    );
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      // Verify Slack signature
+      if (!env.SLACK_SIGNING_SECRET) {
+        throw new ForbiddenError('Slack signing secret not configured');
+      }
 
-    // Handle /devradar command
-    if (command === '/devradar') {
-      if (text === 'status' || text === '') {
-        // Find team by Slack workspace ID
-        const workspace = await db.slackWorkspace.findFirst({
-          where: { slackWorkspaceId: payload.team_id },
-          select: { teamId: true },
-        });
+      const timestamp = request.headers['x-slack-request-timestamp'] as string;
+      const signature = request.headers['x-slack-signature'] as string;
 
-        if (!workspace) {
+      // Use raw body for signature verification
+      const bodyString = request.body as string;
+
+      if (!timestamp || !signature) {
+        throw new ForbiddenError('Missing Slack signature headers');
+      }
+
+      if (!verifySlackRequest(env.SLACK_SIGNING_SECRET, timestamp, bodyString, signature)) {
+        throw new ForbiddenError('Invalid Slack signature');
+      }
+
+      // Parse form data from validated raw body
+      const searchParams = new URLSearchParams(bodyString);
+      const payload = Object.fromEntries(searchParams.entries()) as unknown as SlashCommandPayload;
+
+      const command = payload.command;
+      const text = payload.text.trim().toLowerCase();
+
+      logger.info(
+        {
+          command,
+          text,
+          slackTeamId: payload.team_id,
+          userId: payload.user_id,
+        },
+        'Slash command received'
+      );
+
+      // Handle /devradar command
+      if (command === '/devradar') {
+        if (text === 'status' || text === '') {
+          // Find team by Slack workspace ID
+          const workspace = await db.slackWorkspace.findFirst({
+            where: { slackWorkspaceId: payload.team_id },
+            select: { teamId: true },
+          });
+
+          if (!workspace) {
+            return reply.send({
+              response_type: 'ephemeral',
+              text: '❌ This Slack workspace is not connected to a DevRadar team. Ask your team admin to connect DevRadar.',
+            });
+          }
+
+          // Get team status
+          const status = await getTeamStatus(workspace.teamId);
+          const blocks = formatStatusForSlack(status);
+
+          // Respond in channel
           return reply.send({
-            response_type: 'ephemeral',
-            text: '❌ This Slack workspace is not connected to a DevRadar team. Ask your team admin to connect DevRadar.',
+            response_type: 'in_channel',
+            blocks,
+            text: `Team Status: ${String(status.online.length)} online, ${String(status.idle.length)} idle, ${String(status.offline.length)} offline`,
           });
         }
 
-        // Get team status
-        const status = await getTeamStatus(workspace.teamId);
-        const blocks = formatStatusForSlack(status);
+        if (text === 'help') {
+          return reply.send({
+            response_type: 'ephemeral',
+            blocks: [
+              {
+                type: 'section',
+                text: {
+                  type: 'mrkdwn',
+                  text: '*DevRadar Commands*\n\n`/devradar status` - Show team member statuses\n`/devradar help` - Show this help message',
+                },
+              },
+            ],
+          });
+        }
 
-        // Respond in channel
-        return reply.send({
-          response_type: 'in_channel',
-          blocks,
-          text: `Team Status: ${String(status.online.length)} online, ${String(status.idle.length)} idle, ${String(status.offline.length)} offline`,
-        });
-      }
-
-      if (text === 'help') {
+        // Unknown subcommand
         return reply.send({
           response_type: 'ephemeral',
-          blocks: [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: '*DevRadar Commands*\n\n`/devradar status` - Show team member statuses\n`/devradar help` - Show this help message',
-              },
-            },
-          ],
+          text: `Unknown command: \`${text}\`. Use \`/devradar help\` for available commands.`,
         });
       }
 
-      // Unknown subcommand
+      // Unknown command
       return reply.send({
         response_type: 'ephemeral',
-        text: `Unknown command: \`${text}\`. Use \`/devradar help\` for available commands.`,
+        text: 'Unknown command',
       });
     }
-
-    // Unknown command
-    return reply.send({
-      response_type: 'ephemeral',
-      text: 'Unknown command',
-    });
-  });
+  );
 
   // POST /events - Handle Slack events (future use)
-  app.post('/events', async (request: FastifyRequest, reply: FastifyReply) => {
-    // Handle URL verification challenge
-    const body = request.body as { type?: string; challenge?: string };
-    if (body.type === 'url_verification' && body.challenge) {
-      return reply.send({ challenge: body.challenge });
+  app.post(
+    '/events',
+    {
+      config: {
+        /* Rate limiting: 60 requests per minute per IP (CodeQL: rateLimit via @fastify/rate-limit) */
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      // Verify Slack signature for other events
+      if (!env.SLACK_SIGNING_SECRET) {
+        throw new ForbiddenError('Slack signing secret not configured');
+      }
+
+      const timestamp = request.headers['x-slack-request-timestamp'] as string;
+      const signature = request.headers['x-slack-signature'] as string;
+      const bodyString = JSON.stringify(request.body);
+
+      if (!timestamp || !signature) {
+        throw new ForbiddenError('Missing Slack signature headers');
+      }
+
+      if (!verifySlackRequest(env.SLACK_SIGNING_SECRET, timestamp, bodyString, signature)) {
+        throw new ForbiddenError('Invalid Slack signature');
+      }
+
+      // Handle URL verification challenge after signature validation
+      const body = request.body as { type?: string; challenge?: string };
+      if (body.type === 'url_verification' && body.challenge) {
+        return reply.send({ challenge: body.challenge });
+      }
+
+      // Acknowledge event (Slack requires response within 3 seconds)
+      // Actual event processing should be done asynchronously
+      logger.debug({ event: body }, 'Slack event received');
+
+      return reply.status(200).send();
     }
-
-    // Verify Slack signature for other events
-    if (!env.SLACK_SIGNING_SECRET) {
-      throw new ForbiddenError('Slack signing secret not configured');
-    }
-
-    const timestamp = request.headers['x-slack-request-timestamp'] as string;
-    const signature = request.headers['x-slack-signature'] as string;
-    const bodyString = JSON.stringify(request.body);
-
-    if (!timestamp || !signature) {
-      throw new ForbiddenError('Missing Slack signature headers');
-    }
-
-    if (!verifySlackRequest(env.SLACK_SIGNING_SECRET, timestamp, bodyString, signature)) {
-      throw new ForbiddenError('Invalid Slack signature');
-    }
-
-    // Acknowledge event (Slack requires response within 3 seconds)
-    // Actual event processing should be done asynchronously
-    logger.debug({ event: body }, 'Slack event received');
-
-    return reply.status(200).send();
-  });
+  );
 
   // GET /status - Get connection status for a team
   app.get(

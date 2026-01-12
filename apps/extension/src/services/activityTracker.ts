@@ -11,6 +11,7 @@
 
 import * as vscode from 'vscode';
 
+import type { AuthService } from './authService';
 import type { WebSocketClient } from './wsClient';
 import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
@@ -23,6 +24,7 @@ export class ActivityTracker implements vscode.Disposable {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private idleTimeout: NodeJS.Timeout | null = null;
   private lastActivityTime = Date.now();
+  private lastReportedTime = Date.now();
   private sessionStartTime = Date.now();
   private currentStatus: UserStatusType = 'online';
   private manualStatus: UserStatusType | null = null;
@@ -42,6 +44,7 @@ export class ActivityTracker implements vscode.Disposable {
 
   constructor(
     private readonly wsClient: WebSocketClient,
+    private readonly authService: AuthService,
     private readonly configManager: ConfigManager,
     private readonly logger: Logger
   ) {}
@@ -241,8 +244,49 @@ export class ActivityTracker implements vscode.Disposable {
     this.heartbeatInterval = setInterval(() => {
       if (this.currentStatus === 'online') {
         this.sendStatusUpdate();
+        void this.reportSession();
       }
     }, interval);
+  }
+
+  private async reportSession(): Promise<void> {
+    const now = Date.now();
+    const deltaSeconds = Math.floor((now - this.lastReportedTime) / 1000);
+
+    /* Don't report if less than 1 second */
+    if (deltaSeconds < 1) return;
+
+    const token = this.authService.getToken();
+    if (!token) return;
+
+    const editor = vscode.window.activeTextEditor;
+    const language = editor ? this.getLanguage(editor.document) : undefined;
+    const project = this.getProjectName();
+
+    try {
+      const serverUrl = this.configManager.get('serverUrl');
+      const response = await fetch(`${serverUrl}/api/v1/stats/session`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionDuration: deltaSeconds,
+          language,
+          project,
+        }),
+      });
+
+      if (response.ok) {
+        this.lastReportedTime = now;
+        this.logger.debug('Reported session activity', { deltaSeconds });
+      } else {
+        this.logger.warn('Failed to report session activity', { status: response.status });
+      }
+    } catch (error) {
+      this.logger.warn('Error reporting session activity', error);
+    }
   }
 
   private stopHeartbeat(): void {

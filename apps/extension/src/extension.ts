@@ -55,7 +55,12 @@ class DevRadarExtension implements vscode.Disposable {
     /* Initialize services */
     this.authService = new AuthService(context, this.configManager, this.logger);
     this.wsClient = new WebSocketClient(this.authService, this.configManager, this.logger);
-    this.activityTracker = new ActivityTracker(this.wsClient, this.configManager, this.logger);
+    this.activityTracker = new ActivityTracker(
+      this.wsClient,
+      this.authService,
+      this.configManager,
+      this.logger
+    );
     this.friendRequestService = new FriendRequestService(
       this.configManager,
       this.authService,

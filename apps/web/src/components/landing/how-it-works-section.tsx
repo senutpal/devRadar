@@ -2,34 +2,17 @@
 
 import { useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Download, UserPlus, Radio } from 'lucide-react';
+import { Download, UserPlus, Radio, LucideIcon } from 'lucide-react';
 
 import { Container } from '@/components/layout';
 import { gsap } from '@/lib/gsap-config';
+import { HOW_IT_WORKS_STEPS } from '@/lib/constants';
 
-const steps = [
-  {
-    number: '01',
-    title: 'Install',
-    description: 'Add DevRadar to VS Code with a single click. Takes 30 seconds.',
-    icon: Download,
-    accent: '#FFB800',
-  },
-  {
-    number: '02',
-    title: 'Connect',
-    description: 'Sign in with GitHub. Follow friends, colleagues, or devs you admire.',
-    icon: UserPlus,
-    accent: '#00D4FF',
-  },
-  {
-    number: '03',
-    title: 'Go Live',
-    description: "Start coding. Your network lights up in real-time. That's it.",
-    icon: Radio,
-    accent: '#FF6B6B',
-  },
-];
+const stepIconMap: Record<string, LucideIcon> = {
+  Download,
+  UserPlus,
+  Radio,
+};
 
 export function HowItWorksSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -80,7 +63,7 @@ export function HowItWorksSection() {
         </motion.div>
 
         <div className="steps-grid grid md:grid-cols-3 gap-8 lg:gap-12">
-          {steps.map((step, index) => (
+          {HOW_IT_WORKS_STEPS.map((step, index) => (
             <motion.div
               key={step.number}
               initial={{ opacity: 0, y: 60 }}
@@ -103,7 +86,12 @@ export function HowItWorksSection() {
                     className="w-24 h-24 flex items-center justify-center border-2"
                     style={{ borderColor: step.accent }}
                   >
-                    <step.icon className="w-10 h-10" style={{ color: step.accent }} />
+                    {(() => {
+                      const Icon = stepIconMap[step.icon];
+                      return Icon ? (
+                        <Icon className="w-10 h-10" style={{ color: step.accent }} />
+                      ) : null;
+                    })()}
                   </div>
                   <span className="text-display text-7xl" style={{ color: `${step.accent}20` }}>
                     {step.number}

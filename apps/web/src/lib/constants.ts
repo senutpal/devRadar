@@ -222,3 +222,31 @@ export const STATS = [
   { value: '99.9%', label: 'Uptime' },
   { value: '<50ms', label: 'Latency' },
 ] as const;
+
+export const HOW_IT_WORKS_STEPS = [
+  {
+    number: '01',
+    title: 'Install',
+    description: 'Add DevRadar to VS Code with a single click. Takes 30 seconds.',
+    icon: 'Download',
+    accent: '#FFB800',
+  },
+  {
+    number: '02',
+    title: 'Connect',
+    description: 'Sign in with GitHub. Follow friends, colleagues, or devs you admire.',
+    icon: 'UserPlus',
+    accent: '#00D4FF',
+  },
+  {
+    number: '03',
+    title: 'Go Live',
+    description: "Start coding. Your network lights up in real-time. That's it.",
+    icon: 'Radio',
+    accent: '#FF6B6B',
+  },
+] as const;
+
+export const LEGAL_CONFIG = {
+  lastUpdated: 'January 13, 2026',
+} as const;

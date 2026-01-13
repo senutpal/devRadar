@@ -18,7 +18,7 @@ interface PricingCardProps {
 }
 
 function PricingCard({ tier, index, isAnnual }: PricingCardProps) {
-  const price = isAnnual ? Math.floor(tier.price * 0.5) : tier.price;
+  const price = isAnnual ? Math.round(tier.price * 0.5) : tier.price;
   const isHighlighted = tier.highlighted;
 
   return (
@@ -156,6 +156,7 @@ export function PricingSection() {
             checked={isAnnual}
             onCheckedChange={setIsAnnual}
             className="data-[state=checked]:bg-primary"
+            aria-label="Toggle between monthly and annual billing"
           />
           <span
             className={cn(

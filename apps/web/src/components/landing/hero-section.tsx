@@ -134,7 +134,7 @@ export function HeroSection() {
             </div>
           </div>
 
-          <div className="order-1 lg:order-2 -mt-12 lg:-mt-20 flex justify-center lg:block">
+          <div className="order-1 lg:order-2 -mt-12 lg:-mt-20 hidden lg:flex justify-center lg:block">
             <RadarAnimation />
           </div>
         </div>

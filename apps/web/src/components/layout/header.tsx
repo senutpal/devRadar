@@ -145,6 +145,7 @@ export function Header() {
             </div>
 
             <button
+              type="button"
               className="md:hidden relative z-50 w-10 h-10 flex items-center justify-center text-foreground"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
@@ -234,6 +235,8 @@ export function Header() {
                 <div className="flex items-center justify-center gap-6 pt-6">
                   <Link
                     href={SITE_CONFIG.links.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground"
                   >
                     <Github className="w-6 h-6" />

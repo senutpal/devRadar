@@ -36,20 +36,15 @@ const quickStartSteps = [
 const docSections = [
   {
     title: 'Getting Started',
-    href: '/docs/getting-started',
+    href: '/docs',
     items: ['Installation', 'Authentication', 'First Steps'],
   },
   {
-    title: 'Configuration',
-    href: '/docs/configuration',
-    items: ['Privacy Settings', 'Notifications', 'Themes'],
-  },
-  {
     title: 'Privacy & Security',
-    href: '/docs/privacy',
+    href: '/privacy',
     items: ['Data Collection', 'Ghost Mode', 'Blacklisting'],
   },
-  { title: 'Teams', href: '/docs/teams', items: ['Team Setup', 'Conflict Radar', 'Analytics'] },
+  { title: 'Terms', href: '/terms', items: ['Terms of Service', 'Acceptable Use', 'Privacy'] },
 ];
 
 export default function DocsPage() {
@@ -141,7 +136,11 @@ export default function DocsPage() {
 
           <div className="grid sm:grid-cols-2 gap-6">
             {docSections.map((section) => (
-              <div key={section.title} className="card-brutal p-8 card-hover group cursor-pointer">
+              <Link
+                key={section.title}
+                href={section.href}
+                className="card-brutal p-8 card-hover group cursor-pointer"
+              >
                 <h3 className="text-display text-xl text-foreground mb-4 group-hover:text-primary transition-colors">
                   {section.title}
                 </h3>
@@ -156,7 +155,7 @@ export default function DocsPage() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Link>
             ))}
           </div>
         </Container>

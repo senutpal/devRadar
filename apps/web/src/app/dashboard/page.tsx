@@ -51,6 +51,8 @@ export default function DashboardPage() {
             Don&apos;t have the extension yet?{' '}
             <Link
               href={SITE_CONFIG.links.marketplace}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-primary hover:underline inline-flex items-center gap-1"
             >
               Install DevRadar

@@ -3,16 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ============================================
-   DEVRADAR - PURE MONOCHROMATIC
-   
-   A sophisticated neutral-only aesthetic:
-   - Pure blacks, whites, and grays
-   - No tints, no hues, no accent colors
-   - Infinite depth through shades
-   - Refined, editorial minimalism
-   ============================================ */
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -56,20 +46,9 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ============================================
-   PURE MONOCHROMATIC COLOR PALETTE
-   Primary: Neutral Black (#171717) / Light Gray (#ededed)
-   Background: True Black (#050505) / Off-White (#fcfcfc)
-   No Accent Colors - Grayscale Only
-   ============================================ */
-
-/* ============================================
-   RADAR ANIMATION - PROFESSIONAL REALISTIC RADAR
-   White background in light mode, dark CRT in dark mode
-   ============================================ */
-
 :root {
-  /* Light Mode - White Background with Original Green Elements */
+  --radius: 0.25rem;
+
   --radar-bg: #ffffff;
   --radar-bg-inner: #f0fdf4;
   --radar-ring: #32ff32;
@@ -84,48 +63,7 @@
   --radar-card-bg: rgba(240, 253, 244, 0.95);
   --radar-card-border: rgba(50, 255, 50, 0.15);
   --radar-scanline: rgba(0, 0, 0, 0.05);
-}
 
-.dark {
-  /* Dark Mode - Original Green CRT Look */
-  --radar-bg: #020602;
-  --radar-bg-inner: #0a1f0a;
-  --radar-ring: #32ff32;
-  --radar-ring-dim: rgba(50, 255, 50, 0.15);
-  --radar-line: #32ff32;
-  --radar-line-dim: rgba(50, 255, 50, 0.3);
-  --radar-bright: #32ff32;
-  --radar-glow: rgba(50, 255, 50, 0.5);
-  --radar-shadow: rgba(50, 255, 50, 0.3);
-  --radar-text: #32ff32;
-  --radar-text-dim: rgba(50, 255, 50, 0.6);
-  --radar-card-bg: rgba(0, 20, 0, 0.8);
-  --radar-card-border: rgba(50, 255, 50, 0.15);
-  --radar-scanline: rgba(0, 20, 0, 0.5);
-}
-
-.dark {
-  /* Dark Mode - CRT phosphor radar */
-  --radar-bg: #0a1f0a;
-  --radar-bg-inner: #020602;
-  --radar-ring: #32ff32;
-  --radar-ring-dim: rgba(50, 255, 50, 0.1);
-  --radar-line: #32ff32;
-  --radar-line-dim: rgba(50, 255, 50, 0.3);
-  --radar-bright: #32ff32;
-  --radar-glow: rgba(50, 255, 50, 0.5);
-  --radar-shadow: rgba(50, 255, 50, 0.3);
-  --radar-text: #32ff32;
-  --radar-text-dim: rgba(50, 255, 50, 0.6);
-  --radar-card-bg: rgba(2, 6, 2, 0.9);
-  --radar-card-border: #32ff32;
-  --radar-scanline: rgba(0, 20, 0, 0.3);
-}
-
-:root {
-  --radius: 0.25rem;
-
-  /* Pure Monochromatic - No Tints, No Hues */
   --black: #000000;
   --white: #ffffff;
   --gray-50: #fafafa;
@@ -140,7 +78,6 @@
   --gray-900: #171717;
   --gray-950: #0a0a0a;
 
-  /* Light Mode - Warm Off-White Base */
   --background: #fcfcfc;
   --foreground: #0a0a0a;
 
@@ -150,39 +87,31 @@
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
 
-  /* Primary: Bold Neutral Black */
   --primary: #171717;
   --primary-foreground: #fcfcfc;
 
-  /* Secondary: Light Gray */
   --secondary: #f5f5f5;
   --secondary-foreground: #262626;
 
-  /* Muted */
   --muted: #f5f5f5;
   --muted-foreground: #737373;
 
-  /* Accent */
   --accent: #f5f5f5;
   --accent-foreground: #262626;
 
-  /* Destructive */
   --destructive: #171717;
   --destructive-foreground: #fcfcfc;
 
-  /* Borders */
   --border: #e5e5e5;
   --input: #e5e5e5;
   --ring: #171717;
 
-  /* Charts - Monochromatic Grayscale */
   --chart-1: #262626;
   --chart-2: #525252;
   --chart-3: #737373;
   --chart-4: #a3a3a3;
   --chart-5: #d4d4d4;
 
-  /* Sidebar */
   --sidebar: #fcfcfc;
   --sidebar-foreground: #0a0a0a;
   --sidebar-primary: #171717;
@@ -194,7 +123,21 @@
 }
 
 .dark {
-  /* Dark Mode - True Black */
+  --radar-bg: #0a1f0a;
+  --radar-bg-inner: #020602;
+  --radar-ring: #32ff32;
+  --radar-ring-dim: rgba(50, 255, 50, 0.1);
+  --radar-line: #32ff32;
+  --radar-line-dim: rgba(50, 255, 50, 0.3);
+  --radar-bright: #32ff32;
+  --radar-glow: rgba(50, 255, 50, 0.5);
+  --radar-shadow: rgba(50, 255, 50, 0.3);
+  --radar-text: #32ff32;
+  --radar-text-dim: rgba(50, 255, 50, 0.6);
+  --radar-card-bg: rgba(2, 6, 2, 0.9);
+  --radar-card-border: #32ff32;
+  --radar-scanline: rgba(0, 20, 0, 0.3);
+
   --background: #050505;
   --foreground: #ededed;
 
@@ -204,39 +147,31 @@
   --popover: #0f0f0f;
   --popover-foreground: #ededed;
 
-  /* Primary: Light Neutral */
   --primary: #ededed;
   --primary-foreground: #050505;
 
-  /* Secondary: Dark Gray */
   --secondary: #262626;
   --secondary-foreground: #ededed;
 
-  /* Muted */
   --muted: #262626;
   --muted-foreground: #a3a3a3;
 
-  /* Accent */
   --accent: #262626;
   --accent-foreground: #ededed;
 
-  /* Destructive */
   --destructive: #ededed;
   --destructive-foreground: #050505;
 
-  /* Borders - Subtle Definition */
   --border: #262626;
   --input: #262626;
   --ring: #ededed;
 
-  /* Charts - Inverted Grayscale */
   --chart-1: #ededed;
   --chart-2: #d4d4d4;
   --chart-3: #a3a3a3;
   --chart-4: #737373;
   --chart-5: #525252;
 
-  /* Sidebar */
   --sidebar: #050505;
   --sidebar-foreground: #ededed;
   --sidebar-primary: #ededed;
@@ -246,10 +181,6 @@
   --sidebar-border: #262626;
   --sidebar-ring: #ededed;
 }
-
-/* ============================================
-   BASE STYLES
-   ============================================ */
 
 @layer base {
   * {
@@ -268,13 +199,11 @@
     letter-spacing: -0.01em;
   }
 
-  /* Custom selection */
   ::selection {
     background: rgba(23, 23, 23, 0.2);
     color: #0a0a0a;
   }
 
-  /* Custom scrollbar - ultra minimal */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -293,33 +222,25 @@
     background: var(--muted-foreground);
   }
 
-  /* Hide scrollbar on Firefox */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
 }
 
-/* ============================================
-   TYPOGRAPHY UTILITIES
-   ============================================ */
-
 @layer utilities {
-  /* Display heading - massive, bold, brutalist */
   .text-display {
     font-family: var(--font-display);
     letter-spacing: -0.04em;
     line-height: 0.9;
   }
 
-  /* Mono text */
   .text-mono {
     font-family: var(--font-mono);
     font-weight: 500;
     letter-spacing: 0;
   }
 
-  /* Gradient text - Monochromatic */
   .text-gradient {
     background: linear-gradient(to bottom, var(--primary) 0%, var(--muted-foreground) 100%);
     -webkit-background-clip: text;
@@ -334,7 +255,6 @@
     background-clip: text;
   }
 
-  /* Subtle gradient text - light at top, dark at bottom */
   .text-gradient-subtle {
     background: linear-gradient(to bottom, #a3a3a3 0%, #171717 100%);
     -webkit-background-clip: text;
@@ -349,7 +269,6 @@
     background-clip: text;
   }
 
-  /* Glow effects - Monochromatic */
   .glow-mono {
     box-shadow:
       0 0 20px rgba(23, 23, 23, 0.4),
@@ -369,13 +288,6 @@
       0 0 40px rgba(23, 23, 23, 0.4);
   }
 
-  .text-glow {
-    text-shadow:
-      0 0 20px rgba(23, 23, 23, 0.6),
-      0 0 40px rgba(23, 23, 23, 0.4);
-  }
-
-  /* Brutalist border - left accent only */
   .border-brutal {
     border-left: 4px solid var(--primary);
     background: linear-gradient(
@@ -394,7 +306,6 @@
     );
   }
 
-  /* Card with corner accent */
   .card-brutal {
     position: relative;
     background: var(--card);
@@ -421,7 +332,6 @@
     background: var(--primary);
   }
 
-  /* Noise texture overlay */
   .noise {
     position: relative;
   }
@@ -436,7 +346,6 @@
     mix-blend-mode: overlay;
   }
 
-  /* Scanlines effect */
   .scanlines::after {
     content: '';
     position: absolute;
@@ -451,7 +360,6 @@
     pointer-events: none;
   }
 
-  /* Grid pattern */
   .bg-grid-brutal {
     background-image:
       linear-gradient(color-mix(in srgb, var(--primary) 3%, transparent) 1px, transparent 1px),
@@ -474,7 +382,6 @@
     background-size: 20px 20px;
   }
 
-  /* Dot pattern */
   .bg-dots {
     background-image: radial-gradient(
       color-mix(in srgb, var(--primary) 15%, transparent) 1px,
@@ -483,7 +390,6 @@
     background-size: 24px 24px;
   }
 
-  /* Status indicators - Monochromatic */
   .status-active {
     background: var(--gray-800);
     box-shadow: 0 0 12px color-mix(in srgb, var(--gray-800) 60%, transparent);
@@ -498,11 +404,6 @@
     background: var(--muted);
   }
 
-  /* ============================================
-   ANIMATIONS
-   ============================================ */
-
-  /* Pulse wave - the signature animation */
   .pulse-wave {
     animation: pulseWave 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
@@ -519,7 +420,6 @@
     }
   }
 
-  /* Glow pulse */
   .glow-pulse {
     animation: glowPulse 3s ease-in-out infinite;
   }
@@ -536,7 +436,6 @@
     }
   }
 
-  /* Float animation */
   .float {
     animation: float 6s ease-in-out infinite;
   }
@@ -551,7 +450,6 @@
     }
   }
 
-  /* Slide in from left */
   .slide-in-left {
     animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
@@ -567,7 +465,6 @@
     }
   }
 
-  /* Reveal up */
   .reveal-up {
     animation: revealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
@@ -583,7 +480,6 @@
     }
   }
 
-  /* Scale in */
   .scale-in {
     animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
@@ -599,7 +495,6 @@
     }
   }
 
-  /* Typewriter cursor */
   .cursor-blink::after {
     content: '|';
     animation: blink 1s step-end infinite;
@@ -616,7 +511,6 @@
     }
   }
 
-  /* Marquee */
   .marquee {
     animation: marquee 30s linear infinite;
   }
@@ -630,7 +524,6 @@
     }
   }
 
-  /* Shine */
   @keyframes shine {
     from {
       transform: translateX(-100%);
@@ -639,13 +532,50 @@
       transform: translateX(100%);
     }
   }
+
+  .radar-tick {
+    transform: translate(-50%, -50%) rotate(var(--deg, 0deg)) translateY(-148px);
+  }
+
+  @media (min-width: 768px) {
+    .radar-tick {
+      transform: translateY(-223px);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .radar-tick {
+      transform: translateY(-273px);
+    }
+  }
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  .animate-accordion-down {
+    animation: accordion-down 0.2s ease-out;
+  }
+
+  .animate-accordion-up {
+    animation: accordion-up 0.2s ease-out;
+  }
 }
 
-/* ============================================
-   COMPONENT STYLES
-   ============================================ */
-
-/* Button hover - dramatic lift */
 .btn-brutal {
   position: relative;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -663,7 +593,6 @@
   transform: translateY(-1px);
 }
 
-/* Card hover - subtle glow */
 .card-hover {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -676,7 +605,6 @@
     0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
-/* Nav link with underline reveal */
 .nav-link-brutal {
   position: relative;
   color: var(--muted-foreground);
@@ -702,7 +630,6 @@
   width: 100%;
 }
 
-/* Feature card with number */
 .feature-card {
   position: relative;
   counter-increment: feature;
@@ -721,7 +648,6 @@
   pointer-events: none;
 }
 
-/* Pricing card highlight */
 .pricing-featured {
   position: relative;
   border: 2px solid var(--primary);
@@ -747,10 +673,6 @@
   padding: 6px 16px;
 }
 
-/* ============================================
-   RESPONSIVE UTILITIES
-   ============================================ */
-
 @media (max-width: 768px) {
   .text-display {
     letter-spacing: -0.02em;
@@ -761,10 +683,6 @@
     display: none;
   }
 }
-
-/* ============================================
-   REDUCED MOTION
-   ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -3,6 +3,11 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { gsap, ScrollTrigger } from '@/lib/gsap-config';
 
+/**
+ * A hook for creating GSAP animations with automatic cleanup.
+ * @template T - The HTML element type
+ * @returns An object containing a ref, animate function, createTimeline function, and timeline ref
+ */
 export function useGsapAnimation<T extends HTMLElement = HTMLDivElement>() {
   const ref = useRef<T>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
@@ -39,6 +44,13 @@ export function useGsapAnimation<T extends HTMLElement = HTMLDivElement>() {
   return { ref, animate, createTimeline, timeline: timelineRef };
 }
 
+/**
+ * A hook for creating scroll-triggered animations with GSAP.
+ * @template T - The HTML element type
+ * @param animation - The GSAP animation variables
+ * @param options - Optional configuration for from values and scroll trigger settings
+ * @returns A ref to attach to the target element
+ */
 export function useScrollTrigger<T extends HTMLElement = HTMLDivElement>(
   animation: gsap.TweenVars,
   options?: {
@@ -71,6 +83,14 @@ export function useScrollTrigger<T extends HTMLElement = HTMLDivElement>(
   return ref;
 }
 
+/**
+ * A hook for creating stagger animations with GSAP.
+ * @template T - The HTML element type
+ * @param selector - CSS selector for elements to animate
+ * @param animation - The GSAP animation variables
+ * @param options - Optional configuration for from values, stagger, and scroll trigger
+ * @returns A ref to attach to the parent element
+ */
 export function useStaggerAnimation<T extends HTMLElement = HTMLDivElement>(
   selector: string,
   animation: gsap.TweenVars,
@@ -114,6 +134,12 @@ export function useStaggerAnimation<T extends HTMLElement = HTMLDivElement>(
   return ref;
 }
 
+/**
+ * A hook for creating parallax scroll effects with GSAP.
+ * @template T - The HTML element type
+ * @param speed - The parallax speed factor (default: 0.5)
+ * @returns A ref to attach to the target element
+ */
 export function useParallax<T extends HTMLElement = HTMLDivElement>(speed: number = 0.5) {
   const ref = useRef<T>(null);
 
@@ -139,6 +165,13 @@ export function useParallax<T extends HTMLElement = HTMLDivElement>(speed: numbe
   return ref;
 }
 
+/**
+ * A hook for creating hover animations with GSAP.
+ * @template T - The HTML element type
+ * @param enterAnimation - Animation variables for mouse enter
+ * @param leaveAnimation - Optional animation variables for mouse leave
+ * @returns A ref to attach to the target element
+ */
 export function useHoverAnimation<T extends HTMLElement = HTMLDivElement>(
   enterAnimation: gsap.TweenVars,
   leaveAnimation?: gsap.TweenVars
@@ -182,6 +215,12 @@ export function useHoverAnimation<T extends HTMLElement = HTMLDivElement>(
   return ref;
 }
 
+/**
+ * A hook for creating number counter animations with GSAP.
+ * @param endValue - The final value to count up to
+ * @param options - Optional configuration for duration, prefix, suffix, and decimals
+ * @returns A ref to attach to the element displaying the counter
+ */
 export function useCounterAnimation(
   endValue: number,
   options?: {

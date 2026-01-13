@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { Container } from '@/components/layout';
 import { Separator } from '@/components/ui/separator';
-import { SITE_CONFIG } from '@/lib/constants';
+import { SITE_CONFIG, LEGAL_CONFIG } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -11,15 +11,13 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
-  const lastUpdated = 'January 1, 2025';
-
   return (
     <div className="pt-24 pb-16">
       <Container size="sm">
         <article className="prose prose-invert prose-lg max-w-none">
           <header className="not-prose mb-12">
             <h1 className="text-4xl font-bold mb-4">Terms of Service</h1>
-            <p className="text-muted-foreground">Last updated: {lastUpdated}</p>
+            <p className="text-muted-foreground">Last updated: {LEGAL_CONFIG.lastUpdated}</p>
           </header>
 
           <section className="space-y-6">

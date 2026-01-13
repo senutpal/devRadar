@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import React from 'react';
 import Link from 'next/link';
 import { Check, X, Download } from 'lucide-react';
 
@@ -65,23 +66,23 @@ function FeatureValue({ value }: { value: boolean | string }) {
 
 export default function PricingPage() {
   return (
-    <div className="pt-24 pb-16 bg-[#050505] min-h-screen">
+    <div className="pt-24 pb-16 bg-background min-h-screen">
       <section className="py-20 lg:py-32 relative">
         <div className="absolute inset-0 bg-grid-brutal" />
         <Container className="relative">
           <div className="max-w-3xl">
             <div className="flex items-center gap-4 mb-6">
-              <span className="text-mono text-sm text-[#FFB800] tracking-wider uppercase">
+              <span className="text-mono text-sm text-primary tracking-wider uppercase">
                 Pricing
               </span>
-              <div className="flex-1 h-px bg-[#262626]" />
+              <div className="flex-1 h-px bg-border" />
             </div>
-            <h1 className="text-display text-5xl sm:text-6xl lg:text-7xl text-[#FAFAFA] mb-6">
+            <h1 className="text-display text-5xl sm:text-6xl lg:text-7xl text-foreground mb-6">
               CHOOSE YOUR
               <br />
               <span className="text-gradient">PLAN</span>
             </h1>
-            <p className="text-xl text-[#737373] max-w-xl">
+            <p className="text-xl text-muted-foreground max-w-xl">
               Start free and upgrade when you need more. No hidden fees, cancel anytime.
             </p>
           </div>
@@ -163,8 +164,8 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {comparisonFeatures.map((category) => (
-                  <>
-                    <tr key={category.category} className="bg-[#0A0A0A]">
+                  <React.Fragment key={category.category}>
+                    <tr className="bg-[#0A0A0A]">
                       <td colSpan={4} className="py-4 px-4 text-display text-sm text-[#FAFAFA]">
                         {category.category}
                       </td>
@@ -192,7 +193,7 @@ export default function PricingPage() {
                         </td>
                       </tr>
                     ))}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

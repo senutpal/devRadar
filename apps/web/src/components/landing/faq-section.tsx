@@ -31,7 +31,11 @@ function FAQItem({
       }}
       className="border-b border-border"
     >
-      <button onClick={onToggle} className="w-full flex items-start gap-6 py-6 text-left group">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-start gap-6 py-6 text-left group"
+      >
         <span className="text-mono text-sm text-muted-foreground pt-1">
           {String(index + 1).padStart(2, '0')}
         </span>
@@ -99,7 +103,7 @@ export function FAQSection() {
         <div className="border-t border-border">
           {FAQ_ITEMS.map((item, index) => (
             <FAQItem
-              key={index}
+              key={item.question}
               item={item}
               index={index}
               isOpen={openIndex === index}

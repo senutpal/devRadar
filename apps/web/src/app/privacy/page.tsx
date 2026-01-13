@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Shield, Eye, EyeOff, Lock, Database, Trash2, Download, Server, Users } from 'lucide-react';
 
 import { Container } from '@/components/layout';
-import { SITE_CONFIG } from '@/lib/constants';
+import { SITE_CONFIG, LEGAL_CONFIG } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -35,60 +35,61 @@ function PolicySection({ title, icon, children, accent = 'amber' }: PolicySectio
   );
 }
 
-function DataList({ items, type = 'collect' }: { items: string[]; type?: 'collect' | 'never' }) {
+function DataList({
+  items,
+  type = 'collect',
+}: {
+  items: { label: string; description?: string }[];
+  type?: 'collect' | 'never';
+}) {
   const isNever = type === 'never';
 
   return (
     <ul className="space-y-2 mt-4">
-      {items.map((item, index) => {
-        const [label, description] = item.split(' - ');
-        return (
-          <li key={index} className="flex items-start gap-3">
-            <span
-              className={`w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5 ${
-                isNever ? 'bg-[#FF6B6B]/20 text-[#FF6B6B]' : 'bg-primary/20 text-primary'
-              }`}
-            >
-              {isNever ? 'X' : '+'}
-            </span>
-            <span>
-              <strong className="text-foreground">{label}</strong>
-              {description && ` - ${description}`}
-            </span>
-          </li>
-        );
-      })}
+      {items.map((item, index) => (
+        <li key={index} className="flex items-start gap-3">
+          <span
+            className={`w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5 ${
+              isNever ? 'bg-[#FF6B6B]/20 text-[#FF6B6B]' : 'bg-primary/20 text-primary'
+            }`}
+          >
+            {isNever ? 'X' : '+'}
+          </span>
+          <span>
+            <strong className="text-foreground">{item.label}</strong>
+            {item.description && ` - ${item.description}`}
+          </span>
+        </li>
+      ))}
     </ul>
   );
 }
 
 export default function PrivacyPage() {
-  const lastUpdated = 'January 1, 2025';
-
   const weCollect = [
-    'File names - The name of the file you are editing (can be disabled)',
-    'Programming language - Detected from file extension',
-    'Project name - The workspace/folder name (can be disabled)',
-    'Session duration - How long you have been coding',
-    'Activity intensity - A general measure of coding activity (0-100)',
-    'Timestamps - When activity occurred',
+    { label: 'File names', description: 'The name of the file you are editing (can be disabled)' },
+    { label: 'Programming language', description: 'Detected from file extension' },
+    { label: 'Project name', description: 'The workspace/folder name (can be disabled)' },
+    { label: 'Session duration', description: 'How long you have been coding' },
+    { label: 'Activity intensity', description: 'A general measure of coding activity (0-100)' },
+    { label: 'Timestamps', description: 'When activity occurred' },
   ];
 
   const neverCollect = [
-    'Code content - Your actual code never leaves your machine',
-    'File contents - We do not read what is in your files',
-    'Full file paths - Only the file name, not the directory structure',
-    'Keystrokes - We do not log what you type',
-    'Screenshots - We never capture your screen',
-    'Clipboard data - We do not access your clipboard',
+    { label: 'Code content', description: 'Your actual code never leaves your machine' },
+    { label: 'File contents', description: 'We do not read what is in your files' },
+    { label: 'Full file paths', description: 'Only the file name, not the directory structure' },
+    { label: 'Keystrokes', description: 'We do not log what you type' },
+    { label: 'Screenshots', description: 'We never capture your screen' },
+    { label: 'Clipboard data', description: 'We do not access your clipboard' },
   ];
 
   const yourControls = [
-    'Enable Privacy Mode - Hide file names and project names',
-    'Use Ghost Mode - Go completely invisible (Pro/Team)',
-    'Blacklist files - Exclude specific files or patterns',
-    'Delete your data - Request complete deletion anytime',
-    'Export your data - Download all data we have about you',
+    { label: 'Enable Privacy Mode', description: 'Hide file names and project names' },
+    { label: 'Use Ghost Mode', description: 'Go completely invisible (Pro/Team)' },
+    { label: 'Blacklist files', description: 'Exclude specific files or patterns' },
+    { label: 'Delete your data', description: 'Request complete deletion anytime' },
+    { label: 'Export your data', description: 'Download all data we have about you' },
   ];
 
   return (
@@ -102,7 +103,9 @@ export default function PrivacyPage() {
               </div>
               <div>
                 <h1 className="text-4xl md:text-5xl font-bold text-display">Privacy Policy</h1>
-                <p className="text-mono text-muted-foreground mt-1">Last updated: {lastUpdated}</p>
+                <p className="text-mono text-muted-foreground mt-1">
+                  Last updated: {LEGAL_CONFIG.lastUpdated}
+                </p>
               </div>
             </div>
             <p className="text-lg text-muted-foreground max-w-2xl">

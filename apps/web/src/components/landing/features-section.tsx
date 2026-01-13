@@ -26,6 +26,10 @@ function FeatureCard({ feature, index }: FeatureCardProps) {
   const Icon = iconMap[feature.icon];
   const isEven = index % 2 === 0;
 
+  if (!Icon) {
+    return null;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: isEven ? -40 : 40 }}
@@ -106,10 +110,7 @@ export function FeaturesSection() {
           </div>
         </div>
 
-        <div
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
-          style={{ counterReset: 'feature' }}
-        >
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {FEATURES.map((feature, index) => (
             <FeatureCard key={feature.id} feature={feature} index={index} />
           ))}

@@ -68,11 +68,11 @@ export function RadarAnimation() {
         {[0, 90, 180, 270].map((deg) => (
           <div
             key={deg}
-            className="absolute w-1 h-3 bg-[#65a30d] dark:bg-[#00ff41]"
+            className="radar-tick absolute w-1 h-3 bg-[#65a30d] dark:bg-[#00ff41]"
             style={{
               top: '50%',
               left: '50%',
-              transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-148px) md:translateY(-223px) lg:translateY(-273px)`,
+              transform: `translate(-50%, -50%) rotate(${deg}deg)`,
               boxShadow: '0 0 10px rgba(0, 255, 65, 0.5)',
             }}
           />
@@ -207,7 +207,7 @@ export function RadarAnimation() {
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               className="relative z-40"
             >
-              <Image src="/logo.png" alt="Logo" width={50} height={50} />
+              <Image src="/logo.png" alt="Logo" width={50} height={50} priority />
             </motion.div>
 
             <motion.div

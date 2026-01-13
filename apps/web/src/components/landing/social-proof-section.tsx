@@ -35,10 +35,16 @@ function AnimatedStat({ stat, index }: { stat: (typeof STATS)[number]; index: nu
       const currentValue = Math.floor(targetValue * easeOut);
 
       let formatted = currentValue.toLocaleString();
-      if (hasK) formatted = currentValue + 'K';
-      if (hasM) formatted = currentValue + 'M';
-      if (hasMs) formatted = '<' + currentValue + 'ms';
-      if (hasPlus && !hasMs) formatted += '+';
+      if (hasMs) {
+        formatted = '<' + currentValue + 'ms';
+      } else if (hasK) {
+        formatted = currentValue + 'K';
+      } else if (hasM) {
+        formatted = currentValue + 'M';
+      }
+      if (hasPlus && !hasMs) {
+        formatted += '+';
+      }
 
       setDisplayValue(formatted);
 
@@ -146,7 +152,11 @@ export function SocialProofSection() {
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
           {TESTIMONIALS.map((testimonial, index) => (
-            <TestimonialCard key={testimonial.author} testimonial={testimonial} index={index} />
+            <TestimonialCard
+              key={`${testimonial.author}-${index}`}
+              testimonial={testimonial}
+              index={index}
+            />
           ))}
         </div>
       </Container>

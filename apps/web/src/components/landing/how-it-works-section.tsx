@@ -51,11 +51,9 @@ export function HowItWorksSection() {
           className="text-center mb-20 lg:mb-32"
         >
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="w-16 h-px bg-border" />
             <span className="text-mono text-sm text-primary tracking-wider uppercase">
               02 / How It Works
             </span>
-            <div className="w-16 h-px bg-border" />
           </div>
           <h2 className="text-display text-4xl sm:text-5xl lg:text-6xl text-foreground">
             THREE <span className="text-gradient">SIMPLE</span> STEPS
@@ -76,10 +74,6 @@ export function HowItWorksSection() {
               }}
               className="relative"
             >
-              {index < 2 && (
-                <div className="step-connector hidden md:block absolute top-12 left-full w-full h-px bg-border origin-left z-0" />
-              )}
-
               <div className="relative z-10">
                 <div className="flex items-center gap-6 mb-6">
                   <div

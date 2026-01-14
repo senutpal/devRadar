@@ -110,7 +110,10 @@ export async function getOrCreateCustomer(user: UserForBilling): Promise<string>
   const client = await getClient();
   const clientCasted = client as {
     customers: {
-      all: () => Promise<{ items: { id: string; email: string | undefined }[] }>;
+      all: (params: {
+        count: number;
+        skip: number;
+      }) => Promise<{ items: { id: string; email: string | undefined }[] }>;
       create: (data: Record<string, unknown>) => Promise<{ id: string }>;
     };
   };
@@ -121,19 +124,39 @@ export async function getOrCreateCustomer(user: UserForBilling): Promise<string>
   }
 
   if (user.email) {
+    const userEmail = user.email;
     try {
-      const customersList = await clientCasted.customers.all();
-      const existingCustomer = customersList.items.find((c) => c.email === user.email);
-      if (existingCustomer) {
+      const pageSize = 100;
+      let skip = 0;
+      let foundCustomer: { id: string; email: string | undefined } | null = null;
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional infinite loop with explicit break conditions
+      while (true) {
+        const customersList = await clientCasted.customers.all({ count: pageSize, skip });
+        const matchingCustomer = customersList.items.find((c) => c.email === userEmail);
+
+        if (matchingCustomer) {
+          foundCustomer = matchingCustomer;
+          break;
+        }
+
+        if (customersList.items.length < pageSize) {
+          break;
+        }
+
+        skip += pageSize;
+      }
+
+      if (foundCustomer) {
         await db.user.update({
           where: { id: user.id },
-          data: { razorpayCustomerId: existingCustomer.id },
+          data: { razorpayCustomerId: foundCustomer.id },
         });
         logger.info(
-          { userId: user.id, customerId: existingCustomer.id },
+          { userId: user.id, customerId: foundCustomer.id },
           'Found existing Razorpay customer'
         );
-        return existingCustomer.id;
+        return foundCustomer.id;
       }
     } catch {
       logger.warn(
@@ -212,7 +235,7 @@ export async function createSubscription(
   const subscriptionData: Record<string, unknown> = {
     customer_id: customerId,
     plan_id: planId,
-    total_count: billingInterval === 'annual' ? '5' : '12',
+    total_count: billingInterval === 'annual' ? 5 : 12,
     notes: {
       userId: user.id,
       tier,
@@ -417,7 +440,14 @@ export function verifyPaymentSignature(
     .update(payload)
     .digest('hex');
 
-  return expectedSignature === razorpaySignature;
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+  const signatureBuffer = Buffer.from(razorpaySignature, 'hex');
+
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }
 
 export function verifyWebhookSignature(rawBody: Buffer, signature: string): boolean {
@@ -428,5 +458,12 @@ export function verifyWebhookSignature(rawBody: Buffer, signature: string): bool
     .update(rawBody)
     .digest('hex');
 
-  return signature === expectedSignature;
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+  const signatureBuffer = Buffer.from(signature, 'hex');
+
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }

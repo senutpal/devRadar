@@ -20,6 +20,7 @@ import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
+import fastifyRawBody from 'fastify-raw-body';
 
 import { env, isProduction, isDevelopment } from '@/config';
 import { toAppError, AuthenticationError } from '@/lib/errors';
@@ -87,6 +88,10 @@ async function buildServer() {
         message: 'Too many requests. Please try again later.',
       },
     }),
+  });
+
+  await app.register(fastifyRawBody, {
+    global: false,
   });
 
   await app.register(fastifyWebsocket, {

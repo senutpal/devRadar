@@ -15,6 +15,7 @@ import * as vscode from 'vscode';
 
 import type { AuthService } from './authService';
 import type { Logger } from '../utils/logger';
+import type { ConfigManager } from '../utils/configManager';
 
 const FEATURE_TIER_MAP: Record<Feature, SubscriptionTier> = {
   presence: 'FREE',
@@ -46,7 +47,8 @@ const FEATURE_TIER_MAP: Record<Feature, SubscriptionTier> = {
 export class FeatureGatingService implements vscode.Disposable {
   constructor(
     private readonly authService: AuthService,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    private readonly configManager: ConfigManager
   ) {}
 
   /**
@@ -131,7 +133,7 @@ export class FeatureGatingService implements vscode.Disposable {
    * @returns The web application URL
    */
   getWebAppUrl(): string {
-    return process.env.NEXT_PUBLIC_WEB_APP_URL ?? 'http://localhost:3000';
+    return this.configManager.get('webAppUrl') ?? 'http://localhost:3000';
   }
 
   dispose(): void {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Space_Mono, Syne, DM_Sans } from 'next/font/google';
 import './globals.css';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 import { Header, Footer } from '@/components/layout';
 import { SITE_CONFIG } from '@/lib/constants';

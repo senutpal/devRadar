@@ -243,7 +243,7 @@ export default function PrivacyPage() {
               </li>
               <li className="flex items-center gap-3">
                 <span className="w-2 h-2 bg-primary" />
-                <strong className="text-foreground">RazorPay</strong> - For payment processing
+                <strong className="text-foreground">Razorpay</strong> - For payment processing
               </li>
               <li className="flex items-center gap-3">
                 <span className="w-2 h-2 bg-primary" />

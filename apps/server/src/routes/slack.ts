@@ -187,7 +187,7 @@ export function slackRoutes(app: FastifyInstance): void {
 
       // In production, redirect to dashboard
       return reply.redirect(
-        `https://devradar.io/dashboard/team/${state.teamId}/settings?slack=connected`
+        `${env.WEB_APP_URL}/dashboard/team/${state.teamId}/settings?slack=connected`
       );
     }
   );

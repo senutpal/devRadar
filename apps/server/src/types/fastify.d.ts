@@ -2,11 +2,16 @@
  *
  * Extends Fastify's type system for custom decorators ***/
 
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyReply } from 'fastify';
 
 declare module 'fastify' {
+  // FastifyRequest is referenced from the 'fastify' module namespace
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+  }
+
+  interface FastifyRequest {
+    rawBody?: Buffer;
   }
 }
 

@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 
 import { ActivityTracker } from './services/activityTracker';
 import { AuthService } from './services/authService';
+import { FeatureGatingService } from './services/featureGatingService';
 import { FriendRequestService } from './services/friendRequestService';
 import { WebSocketClient } from './services/wsClient';
 import { ConfigManager } from './utils/configManager';
@@ -48,6 +49,8 @@ class DevRadarExtension implements vscode.Disposable {
   private readonly statsProvider: StatsProvider;
   private readonly leaderboardProvider: LeaderboardProvider;
   private statsRefreshInterval: NodeJS.Timeout | null = null;
+  // Phase 5: Feature Gating
+  private readonly featureGatingService: FeatureGatingService;
 
   constructor(context: vscode.ExtensionContext) {
     this.logger = new Logger('DevRadar');
@@ -77,6 +80,12 @@ class DevRadarExtension implements vscode.Disposable {
     // Phase 2: Gamification views
     this.statsProvider = new StatsProvider(this.logger);
     this.leaderboardProvider = new LeaderboardProvider(this.logger);
+    // Phase 5: Feature Gating
+    this.featureGatingService = new FeatureGatingService(
+      this.authService,
+      this.configManager,
+      this.logger
+    );
     /* Track disposables */
     this.disposables.push(
       this.authService,
@@ -89,7 +98,8 @@ class DevRadarExtension implements vscode.Disposable {
       this.statusBar,
       this.configManager,
       this.statsProvider,
-      this.leaderboardProvider
+      this.leaderboardProvider,
+      this.featureGatingService
     );
   }
 
@@ -193,6 +203,14 @@ class DevRadarExtension implements vscode.Disposable {
         handler: () => {
           void vscode.commands.executeCommand('devradar.friendRequests.focus');
         },
+      },
+      {
+        id: 'devradar.enableGhostMode',
+        handler: () => this.handleEnableGhostMode(),
+      },
+      {
+        id: 'devradar.openBilling',
+        handler: () => this.handleOpenBilling(),
       },
     ];
 
@@ -759,6 +777,42 @@ class DevRadarExtension implements vscode.Disposable {
       this.logger.error('Failed to unfriend user', error);
       void vscode.window.showErrorMessage(`DevRadar: ${message}`);
     }
+  }
+
+  private async handleEnableGhostMode(): Promise<void> {
+    // Check if user has access to ghost mode feature
+    const hasAccess = await this.featureGatingService.promptUpgrade('ghostMode');
+    if (!hasAccess) {
+      return;
+    }
+
+    // Toggle ghost mode
+    const currentMode = this.configManager.get('privacyMode');
+    await this.configManager.update('privacyMode', !currentMode);
+
+    const message = !currentMode
+      ? 'DevRadar: Ghost mode enabled - you are now invisible to others'
+      : 'DevRadar: Ghost mode disabled - your activity is now visible';
+
+    void vscode.window.showInformationMessage(message);
+    this.activityTracker.sendStatusUpdate();
+  }
+
+  private async handleOpenBilling(): Promise<void> {
+    const webAppUrl = this.getWebAppUrl();
+    const tier = this.featureGatingService.getCurrentTier();
+    const billingUrl = `${webAppUrl}/dashboard/billing?current=${tier}`;
+
+    await vscode.env.openExternal(vscode.Uri.parse(billingUrl));
+    this.logger.info('Opened billing page', { currentTier: tier });
+  }
+
+  private getWebAppUrl(): string {
+    const serverUrl = this.configManager.get('serverUrl');
+    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+      return 'http://localhost:3001';
+    }
+    return 'https://devradar.dev';
   }
 
   dispose(): void {

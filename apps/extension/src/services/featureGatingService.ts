@@ -14,8 +14,8 @@ import {
 import * as vscode from 'vscode';
 
 import type { AuthService } from './authService';
-import type { Logger } from '../utils/logger';
 import type { ConfigManager } from '../utils/configManager';
+import type { Logger } from '../utils/logger';
 
 const FEATURE_TIER_MAP: Record<Feature, SubscriptionTier> = {
   presence: 'FREE',
@@ -133,6 +133,7 @@ export class FeatureGatingService implements vscode.Disposable {
    * @returns The web application URL
    */
   getWebAppUrl(): string {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- config.get() can return undefined
     return this.configManager.get('webAppUrl') ?? 'http://localhost:3000';
   }
 

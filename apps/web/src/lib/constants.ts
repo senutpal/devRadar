@@ -97,6 +97,7 @@ export const PRICING_TIERS = [
     id: 'free',
     name: 'Free',
     price: 0,
+    annualPrice: 0,
     description: 'Perfect for solo developers',
     features: [
       { text: 'Real-time presence', included: true },
@@ -114,8 +115,13 @@ export const PRICING_TIERS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 2,
+    price: 99,
+    annualPrice: 588, // ₹49/month billed annually (₹588/year)
     description: 'For serious developers',
+    razorpayPlanIds: {
+      monthly: process.env.NEXT_PUBLIC_RAZORPAY_PRO_MONTHLY_PLAN_ID || 'plan_pro_monthly',
+      annual: process.env.NEXT_PUBLIC_RAZORPAY_PRO_ANNUAL_PLAN_ID || 'plan_pro_annual',
+    },
     features: [
       { text: 'Everything in Free', included: true },
       { text: 'Unlimited friends', included: true },
@@ -132,9 +138,14 @@ export const PRICING_TIERS = [
   {
     id: 'team',
     name: 'Team',
-    price: 7,
+    price: 499,
+    annualPrice: 2988, // ₹249/month billed annually (₹2988/year)
     priceNote: 'per user',
     description: 'For distributed teams',
+    razorpayPlanIds: {
+      monthly: process.env.NEXT_PUBLIC_RAZORPAY_TEAM_MONTHLY_PLAN_ID || 'plan_team_monthly',
+      annual: process.env.NEXT_PUBLIC_RAZORPAY_TEAM_ANNUAL_PLAN_ID || 'plan_team_annual',
+    },
     features: [
       { text: 'Everything in Pro', included: true },
       { text: 'Merge conflict radar', included: true },
@@ -145,7 +156,7 @@ export const PRICING_TIERS = [
       { text: 'Admin controls', included: true },
       { text: 'Dedicated support', included: true },
     ],
-    cta: 'Contact Sales',
+    cta: 'Upgrade to Team',
     highlighted: false,
   },
 ] as const;

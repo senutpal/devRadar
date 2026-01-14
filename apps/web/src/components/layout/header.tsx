@@ -3,20 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
-import {
-  motion,
-  AnimatePresence,
-  useScroll,
-  useTransform,
-  useMotionValue,
-  useSpring,
-} from 'motion/react';
-import { Menu, X, Download, Github, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
+import { Menu, X, Github, ChevronRight, User, LogOut, Settings } from 'lucide-react';
 
 import { Container } from './container';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/ui/mode-toggle';
 import { NAV_LINKS, SITE_CONFIG } from '@/lib/constants';
+import { useAuth } from '@/lib/auth';
 
 function Logo() {
   return (
@@ -43,56 +37,105 @@ function NavItem({ href, label }: { href: string; label: string }) {
   );
 }
 
-function MagneticButton({ children, href }: { children: React.ReactNode; href: string }) {
-  const ref = useRef<HTMLAnchorElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
+function UserMenu() {
+  const { user, signIn, signOut, isAuthenticated } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const springConfig = { damping: 15, stiffness: 150, mass: 0.1 };
-  const springX = useSpring(x, springConfig);
-  const springY = useSpring(y, springConfig);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!ref.current) return;
-    const { clientX, clientY } = e;
-    const { left, top, width, height } = ref.current.getBoundingClientRect();
-    const centerX = left + width / 2;
-    const centerY = top + height / 2;
-    x.set((clientX - centerX) * 0.2);
-    y.set((clientY - centerY) * 0.2);
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-  };
+  if (isAuthenticated && user) {
+    return (
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-2 p-1 rounded-full hover:bg-muted transition-colors"
+        >
+          {user.avatarUrl ? (
+            <Image
+              src={user.avatarUrl}
+              alt={user.displayName || user.username}
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+              <User className="w-4 h-4" />
+            </div>
+          )}
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
+            >
+              <div className="px-4 py-3 border-b border-border">
+                <p className="font-medium truncate">{user.displayName || user.username}</p>
+                <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
+              </div>
+              <div className="py-1">
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <User className="w-4 h-4" />
+                  Dashboard
+                </Link>
+                <Link
+                  href="/dashboard/billing"
+                  className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Settings className="w-4 h-4" />
+                  Billing
+                </Link>
+              </div>
+              <div className="border-t border-border">
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    signOut();
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-destructive hover:bg-muted w-full transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
-    <motion.div style={{ x: springX, y: springY }}>
-      <Button
-        size="sm"
-        className="relative overflow-hidden btn-brutal bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-6 h-10 group"
-        asChild
-      >
-        <Link
-          ref={ref}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        >
-          <span className="relative z-10 flex items-center">{children}</span>
-          <div className="absolute inset-0 -translate-x-full group-hover:animate-[shine_1s_ease-in-out_infinite] bg-linear-to-r from-transparent via-white/20 to-transparent" />
-        </Link>
-      </Button>
-    </motion.div>
+    <Button size="sm" onClick={signIn} variant="ghost" className="font-medium">
+      <User className="w-4 h-4 mr-2" />
+      Sign In
+    </Button>
   );
 }
 
 export function Header() {
   const { scrollY } = useScroll();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated, signIn } = useAuth();
 
   const headerOpacity = useTransform(scrollY, [0, 50], [0, 1]);
 
@@ -138,10 +181,7 @@ export function Header() {
 
               <ModeToggle />
 
-              <MagneticButton href={SITE_CONFIG.links.marketplace}>
-                <Download className="w-4 h-4 mr-2" />
-                Install
-              </MagneticButton>
+              <UserMenu />
             </div>
 
             <button
@@ -217,20 +257,32 @@ export function Header() {
                 transition={{ delay: 0.6 }}
                 className="mt-8 space-y-4"
               >
-                <Button
-                  size="lg"
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-14 text-lg"
-                  asChild
-                >
-                  <Link
-                    href={SITE_CONFIG.links.marketplace}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {isAuthenticated ? (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full font-bold h-14 text-lg"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      signIn();
+                    }}
                   >
-                    <Download className="w-5 h-5 mr-2" />
-                    Install Extension
-                  </Link>
-                </Button>
+                    <User className="w-5 h-5 mr-2" />
+                    Dashboard
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-14 text-lg"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      signIn();
+                    }}
+                  >
+                    <Github className="w-5 h-5 mr-2" />
+                    Sign in with GitHub
+                  </Button>
+                )}
 
                 <div className="flex items-center justify-center gap-6 pt-6">
                   <Link

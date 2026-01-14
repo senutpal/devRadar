@@ -1,4 +1,5 @@
-import type { Metadata } from 'next';
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Lock, ExternalLink, Calendar, Award, TrendingUp } from 'lucide-react';
@@ -9,11 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SITE_CONFIG } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
-
-export const metadata: Metadata = {
-  title: 'Dashboard',
-  description: 'DevRadar Dashboard - Manage your account and view your coding activity.',
-};
 
 function SignedOutView() {
   const { signIn } = useAuth();

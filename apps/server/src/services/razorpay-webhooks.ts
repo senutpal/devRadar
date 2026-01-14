@@ -100,9 +100,10 @@ async function handleSubscriptionActivated(
   }
 
   await db.user.update({
-    where: { razorpaySubscriptionId: subscriptionId },
+    where: { id: userId },
     data: {
       tier: tier ?? 'PRO',
+      razorpaySubscriptionId: subscriptionId,
       razorpayCurrentPeriodEnd: new Date(currentEnd * 1000),
     },
   });

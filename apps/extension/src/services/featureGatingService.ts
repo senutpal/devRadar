@@ -5,75 +5,16 @@
  * Checks user tier and prompts for upgrade when accessing gated features.
  */
 
+import {
+  type Feature,
+  type SubscriptionTier,
+  SUBSCRIPTION_FEATURES,
+  FEATURE_DESCRIPTIONS,
+} from '@devradar/shared';
 import * as vscode from 'vscode';
 
 import type { AuthService } from './authService';
 import type { Logger } from '../utils/logger';
-
-type Feature =
-  | 'presence'
-  | 'friends'
-  | 'globalLeaderboard'
-  | 'friendsLeaderboard'
-  | 'streaks'
-  | 'achievements'
-  | 'poke'
-  | 'privacyMode'
-  | 'unlimitedFriends'
-  | 'ghostMode'
-  | 'customStatus'
-  | 'history30d'
-  | 'themes'
-  | 'customEmoji'
-  | 'prioritySupport'
-  | 'conflictRadar'
-  | 'teamCreation'
-  | 'teamAnalytics'
-  | 'slackIntegration'
-  | 'privateLeaderboards'
-  | 'adminControls'
-  | 'ssoSaml'
-  | 'dedicatedSupport';
-
-type SubscriptionTier = 'FREE' | 'PRO' | 'TEAM';
-
-const FREE_FEATURES: readonly Feature[] = [
-  'presence',
-  'friends',
-  'globalLeaderboard',
-  'friendsLeaderboard',
-  'streaks',
-  'achievements',
-  'poke',
-  'privacyMode',
-];
-
-const PRO_ADDITIONAL: readonly Feature[] = [
-  'unlimitedFriends',
-  'ghostMode',
-  'customStatus',
-  'history30d',
-  'themes',
-  'customEmoji',
-  'prioritySupport',
-];
-
-const TEAM_ADDITIONAL: readonly Feature[] = [
-  'conflictRadar',
-  'teamCreation',
-  'teamAnalytics',
-  'slackIntegration',
-  'privateLeaderboards',
-  'adminControls',
-  'ssoSaml',
-  'dedicatedSupport',
-];
-
-const SUBSCRIPTION_FEATURES: Record<SubscriptionTier, readonly Feature[]> = {
-  FREE: FREE_FEATURES,
-  PRO: [...FREE_FEATURES, ...PRO_ADDITIONAL],
-  TEAM: [...FREE_FEATURES, ...PRO_ADDITIONAL, ...TEAM_ADDITIONAL],
-};
 
 const FEATURE_TIER_MAP: Record<Feature, SubscriptionTier> = {
   presence: 'FREE',
@@ -99,38 +40,10 @@ const FEATURE_TIER_MAP: Record<Feature, SubscriptionTier> = {
   adminControls: 'TEAM',
   ssoSaml: 'TEAM',
   dedicatedSupport: 'TEAM',
-};
-
-const FEATURE_DESCRIPTIONS: Record<Feature, string> = {
-  presence: 'Real-time presence status',
-  friends: 'Friends list with activity',
-  globalLeaderboard: 'Global coding leaderboards',
-  friendsLeaderboard: 'Friends leaderboard',
-  streaks: 'Coding streak tracking',
-  achievements: 'GitHub achievements',
-  poke: 'Poke friends',
-  privacyMode: 'Hide activity details',
-  unlimitedFriends: 'Unlimited friends',
-  ghostMode: 'Go completely invisible',
-  customStatus: 'Custom status messages',
-  history30d: '30-day activity history',
-  themes: 'Custom themes',
-  customEmoji: 'Custom emoji reactions',
-  prioritySupport: 'Priority support',
-  conflictRadar: 'Merge conflict detection',
-  teamCreation: 'Create and manage teams',
-  teamAnalytics: 'Team analytics dashboard',
-  slackIntegration: 'Slack integration',
-  privateLeaderboards: 'Private team leaderboards',
-  adminControls: 'Admin controls',
-  ssoSaml: 'SSO & SAML authentication',
-  dedicatedSupport: 'Dedicated support',
-};
+} as const;
 
 /** Manages feature access control and upgrade prompts. */
 export class FeatureGatingService implements vscode.Disposable {
-  private readonly disposables: vscode.Disposable[] = [];
-
   constructor(
     private readonly authService: AuthService,
     private readonly logger: Logger
@@ -215,14 +128,13 @@ export class FeatureGatingService implements vscode.Disposable {
 
   /**
    * Gets the web app URL from config or uses default.
+   * @returns The web application URL
    */
-  private getWebAppUrl(): string {
-    return process.env.NEXT_PUBLIC_WEB_APP_URL || 'http://localhost:3000';
+  getWebAppUrl(): string {
+    return process.env.NEXT_PUBLIC_WEB_APP_URL ?? 'http://localhost:3000';
   }
 
   dispose(): void {
-    for (const disposable of this.disposables) {
-      disposable.dispose();
-    }
+    // No disposables to clean up
   }
 }

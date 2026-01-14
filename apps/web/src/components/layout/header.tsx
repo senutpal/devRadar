@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
+import {
+  motion,
+  AnimatePresence,
+  useScroll,
+  useTransform,
+  useMotionValue,
+  useSpring,
+} from 'motion/react';
 import { Menu, X, Github, ChevronRight, User, LogOut, Settings } from 'lucide-react';
 
 import { Container } from './container';
@@ -34,6 +41,67 @@ function NavItem({ href, label }: { href: string; label: string }) {
 
       <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out" />
     </Link>
+  );
+}
+
+function MagneticButton({
+  children,
+  href,
+  onClick,
+}: {
+  children: React.ReactNode;
+  href: string;
+  onClick?: () => void;
+}) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const springConfig = { damping: 15, stiffness: 150, mass: 0.1 };
+  const springX = useSpring(x, springConfig);
+  const springY = useSpring(y, springConfig);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!ref.current) return;
+    const { clientX, clientY } = e;
+    const { left, top, width, height } = ref.current.getBoundingClientRect();
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+    x.set((clientX - centerX) * 0.2);
+    y.set((clientY - centerY) * 0.2);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onClick) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
+  return (
+    <motion.div style={{ x: springX, y: springY }}>
+      <Button
+        size="sm"
+        className="relative overflow-hidden btn-brutal bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-6 h-10 group"
+        asChild
+      >
+        <Link
+          ref={ref}
+          href={href}
+          onClick={handleClick}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          <span className="relative z-10 flex items-center">{children}</span>
+          <div className="absolute inset-0 -translate-x-full group-hover:animate-[shine_1s_ease-in-out_infinite] bg-linear-to-r from-transparent via-white/20 to-transparent" />
+        </Link>
+      </Button>
+    </motion.div>
   );
 }
 
@@ -125,10 +193,10 @@ function UserMenu() {
   }
 
   return (
-    <Button size="sm" onClick={signIn} variant="ghost" className="font-medium">
+    <MagneticButton href="#" onClick={signIn}>
       <User className="w-4 h-4 mr-2" />
       Sign In
-    </Button>
+    </MagneticButton>
   );
 }
 

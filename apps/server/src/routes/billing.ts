@@ -170,7 +170,7 @@ export function billingRoutes(app: FastifyInstance): void {
   app.post(
     '/webhooks',
     {
-      config: { rawBody: true },
+      config: { rawBody: true, rateLimit: false },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       if (!isRazorpayEnabled()) {

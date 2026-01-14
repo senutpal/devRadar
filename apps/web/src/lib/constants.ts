@@ -138,8 +138,8 @@ export const PRICING_TIERS = [
   {
     id: 'team',
     name: 'Team',
-    price: 249,
-    annualPrice: 2988, // ₹249/month billed annually (₹2988/year)
+    price: 499,
+    annualPrice: 2999, // ~50% discount vs monthly (499 * 12 = 5988)
     priceNote: 'per user',
     description: 'For distributed teams',
     razorpayPlanIds: {

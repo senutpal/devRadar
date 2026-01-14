@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 export interface DevRadarConfig {
   serverUrl: string;
   wsUrl: string;
+  webAppUrl: string;
   privacyMode: boolean;
   showFileName: boolean;
   showProject: boolean;
@@ -27,10 +28,12 @@ const DEFAULT_CONFIG: DevRadarConfig = {
   /* Production */
   serverUrl: 'https://wispy-netti-devradar-c95bfbd3.koyeb.app',
   wsUrl: 'wss://wispy-netti-devradar-c95bfbd3.koyeb.app/ws',
+  webAppUrl: 'https://devradar.dev',
 
   /* Development */
   // serverUrl: 'http://localhost:3000',
   // wsUrl: 'ws://localhost:3000/ws',
+  // webAppUrl: 'http://localhost:3000',
   privacyMode: false,
   showFileName: true,
   showProject: true,
@@ -96,6 +99,7 @@ export class ConfigManager implements vscode.Disposable {
     return {
       serverUrl: config.get<string>('serverUrl') ?? DEFAULT_CONFIG.serverUrl,
       wsUrl: config.get<string>('wsUrl') ?? DEFAULT_CONFIG.wsUrl,
+      webAppUrl: config.get<string>('webAppUrl') ?? DEFAULT_CONFIG.webAppUrl,
       privacyMode: config.get<boolean>('privacyMode') ?? DEFAULT_CONFIG.privacyMode,
       showFileName: config.get<boolean>('showFileName') ?? DEFAULT_CONFIG.showFileName,
       showProject: config.get<boolean>('showProject') ?? DEFAULT_CONFIG.showProject,

@@ -81,7 +81,11 @@ class DevRadarExtension implements vscode.Disposable {
     this.statsProvider = new StatsProvider(this.logger);
     this.leaderboardProvider = new LeaderboardProvider(this.logger);
     // Phase 5: Feature Gating
-    this.featureGatingService = new FeatureGatingService(this.authService, this.logger);
+    this.featureGatingService = new FeatureGatingService(
+      this.authService,
+      this.logger,
+      this.configManager
+    );
     /* Track disposables */
     this.disposables.push(
       this.authService,

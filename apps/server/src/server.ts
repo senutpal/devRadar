@@ -25,6 +25,7 @@ import { env, isProduction, isDevelopment } from '@/config';
 import { toAppError, AuthenticationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { authRoutes } from '@/routes/auth';
+import { billingRoutes } from '@/routes/billing';
 import { friendRequestRoutes } from '@/routes/friendRequests';
 import { friendRoutes } from '@/routes/friends';
 import { leaderboardRoutes } from '@/routes/leaderboards';
@@ -202,6 +203,7 @@ async function buildServer() {
   );
 
   app.register(authRoutes, { prefix: '/auth' });
+  app.register(billingRoutes, { prefix: '/billing' });
   app.register(webhookRoutes, { prefix: '/webhooks' });
   app.register(slackRoutes, { prefix: '/slack' });
 

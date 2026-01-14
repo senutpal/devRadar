@@ -51,6 +51,28 @@ const envSchema = z
     SLACK_CLIENT_SECRET: z.string().trim().min(1).optional(),
     SLACK_SIGNING_SECRET: z.string().trim().min(1).optional(),
 
+    /* Razorpay Billing (Required for billing features) */
+    RAZORPAY_KEY_ID: z.string().trim().min(1, 'RAZORPAY_KEY_ID is required'),
+    RAZORPAY_KEY_SECRET: z.string().trim().min(1, 'RAZORPAY_KEY_SECRET is required'),
+    RAZORPAY_WEBHOOK_SECRET: z.string().trim().min(1, 'RAZORPAY_WEBHOOK_SECRET is required'),
+    RAZORPAY_PRO_MONTHLY_PLAN_ID: z
+      .string()
+      .trim()
+      .min(1, 'RAZORPAY_PRO_MONTHLY_PLAN_ID is required'),
+    RAZORPAY_PRO_ANNUAL_PLAN_ID: z
+      .string()
+      .trim()
+      .min(1, 'RAZORPAY_PRO_ANNUAL_PLAN_ID is required'),
+    RAZORPAY_TEAM_MONTHLY_PLAN_ID: z
+      .string()
+      .trim()
+      .min(1, 'RAZORPAY_TEAM_MONTHLY_PLAN_ID is required'),
+    RAZORPAY_TEAM_ANNUAL_PLAN_ID: z
+      .string()
+      .trim()
+      .min(1, 'RAZORPAY_TEAM_ANNUAL_PLAN_ID is required'),
+    WEB_APP_URL: z.string().url().default('http://localhost:3000'),
+
     /* Security & General */
     ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be at least 32 characters'),
     API_BASE_URL: z.string().url().optional(),

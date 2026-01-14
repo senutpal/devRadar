@@ -111,7 +111,15 @@ export function billingRoutes(app: FastifyInstance): void {
 
   app.post(
     '/verify',
-    { onRequest: [authenticate] },
+    {
+      onRequest: [authenticate],
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+        },
+      },
+    },
     async (request: FastifyRequest, reply: FastifyReply) => {
       if (!isRazorpayEnabled()) {
         throw new InternalError('Billing is not configured');
@@ -150,6 +158,7 @@ export function billingRoutes(app: FastifyInstance): void {
         where: { id: userId },
         data: {
           tier: subscriptionDetails.notes.tier as 'PRO' | 'TEAM',
+          razorpaySubscriptionId: razorpaySubscriptionId,
           razorpayCurrentPeriodEnd: new Date(subscriptionDetails.current_end * 1000),
         },
       });
@@ -161,7 +170,7 @@ export function billingRoutes(app: FastifyInstance): void {
   app.post(
     '/webhooks',
     {
-      config: { rawBody: true } as Record<string, unknown>,
+      config: { rawBody: true },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       if (!isRazorpayEnabled()) {

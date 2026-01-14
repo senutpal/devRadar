@@ -5,7 +5,8 @@
  *
  * IMPORTANT: In Prisma 7, env vars must be explicitly loaded with dotenv ***/
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ quiet: true });
 import { defineConfig, env } from 'prisma/config';
 
 export default defineConfig({

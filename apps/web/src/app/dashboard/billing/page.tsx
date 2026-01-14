@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import {
   Check,
   X,
@@ -65,19 +66,7 @@ function BillingPageContent() {
   const canceled = searchParams.get('canceled') === 'true';
   const upgradeTo = searchParams.get('upgrade') as 'PRO' | 'TEAM' | null;
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      signIn();
-    }
-  }, [authLoading, isAuthenticated, signIn]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchBillingStatus();
-    }
-  }, [isAuthenticated]);
-
-  const fetchBillingStatus = async () => {
+  const fetchBillingStatus = useCallback(async () => {
     try {
       const data = await authApi.getBillingStatus();
       setBillingStatus({
@@ -89,7 +78,19 @@ function BillingPageContent() {
     } catch (error) {
       console.error('Failed to fetch billing status:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      signIn();
+    }
+  }, [authLoading, isAuthenticated, signIn]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchBillingStatus();
+    }
+  }, [isAuthenticated, fetchBillingStatus]);
 
   const handleCheckout = async (tier: 'PRO' | 'TEAM') => {
     setLoading(tier);
@@ -116,8 +117,9 @@ function BillingPageContent() {
               response.razorpay_signature
             );
             window.location.href = '/dashboard/billing?success=true';
-          } catch {
-            window.location.href = '/dashboard/billing?canceled=true';
+          } catch (error) {
+            console.error('Payment verification failed:', error);
+            window.location.href = '/dashboard/billing?verification_failed=true';
           }
         },
         prefill: {
@@ -135,7 +137,7 @@ function BillingPageContent() {
       razorpay.open();
     } catch (error) {
       console.error('Checkout failed:', error);
-      alert('Failed to initialize checkout. Please try again.');
+      toast.error('Failed to initialize checkout. Please try again.');
     } finally {
       setLoading(null);
     }
@@ -148,7 +150,7 @@ function BillingPageContent() {
       if (response.ok) {
         const data = await response.json();
         if (data.hasSubscription) {
-          alert(
+          toast.info(
             'Subscription management is available through the Razorpay dashboard. Contact support@devradar.dev for assistance.'
           );
         }
@@ -173,10 +175,10 @@ function BillingPageContent() {
     try {
       await authApi.cancelSubscription();
       fetchBillingStatus();
-      alert('Subscription cancelled successfully');
+      toast.success('Subscription cancelled successfully');
     } catch (error) {
       console.error('Cancel failed:', error);
-      alert('Failed to cancel subscription. Please try again.');
+      toast.error('Failed to cancel subscription. Please try again.');
     } finally {
       setLoading(null);
     }
@@ -342,7 +344,8 @@ function BillingPageContent() {
 
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto mb-16">
               {PRICING_TIERS.map((tier) => {
-                const price = isAnnual ? Math.round(tier.price * 0.5) : tier.price;
+                const price =
+                  isAnnual && tier.annualPrice > 0 ? Math.round(tier.annualPrice / 12) : tier.price;
                 const isCurrentPlan = tier.id.toUpperCase() === billingStatus.tier;
                 const isHighlighted = tier.highlighted || tier.id.toUpperCase() === upgradeTo;
                 const canUpgrade =

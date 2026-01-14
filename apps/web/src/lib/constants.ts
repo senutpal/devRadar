@@ -138,7 +138,7 @@ export const PRICING_TIERS = [
   {
     id: 'team',
     name: 'Team',
-    price: 499,
+    price: 249,
     annualPrice: 2988, // ₹249/month billed annually (₹2988/year)
     priceNote: 'per user',
     description: 'For distributed teams',

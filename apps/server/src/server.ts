@@ -55,7 +55,7 @@ async function buildServer() {
   });
 
   await app.register(fastifyCors, {
-    origin: isDevelopment ? true : ['https://devradar.io', /\.devradar\.io$/],
+    origin: isDevelopment ? true : [env.WEB_APP_URL],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });

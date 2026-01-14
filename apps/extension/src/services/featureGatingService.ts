@@ -8,7 +8,6 @@
 import * as vscode from 'vscode';
 
 import type { AuthService } from './authService';
-import type { ConfigManager } from '../utils/configManager';
 import type { Logger } from '../utils/logger';
 
 type Feature =
@@ -134,7 +133,6 @@ export class FeatureGatingService implements vscode.Disposable {
 
   constructor(
     private readonly authService: AuthService,
-    private readonly configManager: ConfigManager,
     private readonly logger: Logger
   ) {}
 
@@ -219,11 +217,7 @@ export class FeatureGatingService implements vscode.Disposable {
    * Gets the web app URL from config or uses default.
    */
   private getWebAppUrl(): string {
-    const serverUrl = this.configManager.get('serverUrl');
-    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
-      return 'http://localhost:3001';
-    }
-    return 'https://devradar.dev';
+    return process.env.NEXT_PUBLIC_WEB_APP_URL || 'http://localhost:3000';
   }
 
   dispose(): void {

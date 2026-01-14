@@ -152,11 +152,7 @@ function getSlackRedirectUri(): string {
   if (env.API_BASE_URL) {
     return `${env.API_BASE_URL}/slack/callback`;
   }
-  const baseUrl =
-    env.NODE_ENV === 'production'
-      ? 'https://api.devradar.io'
-      : `http://localhost:${String(env.PORT)}`;
-  return `${baseUrl}/slack/callback`;
+  return `${env.WEB_APP_URL}/slack/callback`;
 }
 
 /**

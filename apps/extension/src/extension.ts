@@ -81,11 +81,7 @@ class DevRadarExtension implements vscode.Disposable {
     this.statsProvider = new StatsProvider(this.logger);
     this.leaderboardProvider = new LeaderboardProvider(this.logger);
     // Phase 5: Feature Gating
-    this.featureGatingService = new FeatureGatingService(
-      this.authService,
-      this.configManager,
-      this.logger
-    );
+    this.featureGatingService = new FeatureGatingService(this.authService, this.logger);
     /* Track disposables */
     this.disposables.push(
       this.authService,
@@ -808,11 +804,7 @@ class DevRadarExtension implements vscode.Disposable {
   }
 
   private getWebAppUrl(): string {
-    const serverUrl = this.configManager.get('serverUrl');
-    if (serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
-      return 'http://localhost:3001';
-    }
-    return 'https://devradar.dev';
+    return process.env.NEXT_PUBLIC_WEB_APP_URL || 'http://localhost:3000';
   }
 
   dispose(): void {

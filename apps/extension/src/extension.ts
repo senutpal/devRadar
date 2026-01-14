@@ -795,16 +795,12 @@ class DevRadarExtension implements vscode.Disposable {
   }
 
   private async handleOpenBilling(): Promise<void> {
-    const webAppUrl = this.getWebAppUrl();
+    const webAppUrl = this.featureGatingService.getWebAppUrl();
     const tier = this.featureGatingService.getCurrentTier();
     const billingUrl = `${webAppUrl}/dashboard/billing?current=${tier}`;
 
     await vscode.env.openExternal(vscode.Uri.parse(billingUrl));
     this.logger.info('Opened billing page', { currentTier: tier });
-  }
-
-  private getWebAppUrl(): string {
-    return process.env.NEXT_PUBLIC_WEB_APP_URL || 'http://localhost:3000';
   }
 
   dispose(): void {

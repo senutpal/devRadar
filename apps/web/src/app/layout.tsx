@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Space_Mono, Syne, DM_Sans } from 'next/font/google';
 import './globals.css';
+import { Toaster } from 'sonner';
 
 import { Header, Footer } from '@/components/layout';
 import { SITE_CONFIG } from '@/lib/constants';
@@ -95,6 +96,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <AuthProvider>
+              <Toaster position="bottom-right" />
               <div
                 className="fixed inset-0 pointer-events-none z-0 opacity-[0.015] dark:opacity-[0.015]"
                 style={{

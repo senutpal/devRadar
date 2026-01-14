@@ -48,3 +48,5 @@ docker-compose.override.yml
 apps/server/src/generated/
 
 rules/
+docs/
+opencode.jsonc

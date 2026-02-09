@@ -1,9 +1,9 @@
-# Apps Directory
+# apps directory
 
-This directory contains deployable applications:
+deployable applications:
 
-- `extension/` - VS Code Extension (Phase 1)
-- `server/` - Backend API + WebSocket Server (Phase 1)
-- `web/` - Marketing Website + Dashboard (Phase 4)
+- `extension/` - vs code extension (v0.4.0)
+- `server/` - fastify rest api + websocket server
+- `web/` - next.js landing page + dashboard
 
-Each app will be created in subsequent phases.
+each app is developed independently with shared packages from `packages/`.

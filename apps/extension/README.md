@@ -1,92 +1,85 @@
-# DevRadar VS Code Extension
+# devradar vs code extension
 
-> **Discord Status for VS Code** - See what your friends are coding in real-time 🚀
+discord status for vs code. see what your friends are coding in real-time.
 
-## Features
+## features
 
-- **🟢 Real-Time Presence**: See which friends are online and what they're working on
-- **👀 Activity Sharing**: Share your coding activity (with privacy controls)
-- **👋 Poke Friends**: Get their attention with a friendly notification
-- **🔒 Privacy First**: Full control over what you share - or go invisible
-- **📊 Coding Stats**: Track your session time and coding intensity
+- real-time presence: see which friends are online and what they are working on
+- activity sharing: share your coding activity with privacy controls
+- poke friends: send friendly notifications
+- privacy first: full control over what you share
+- coding stats: track session time and coding intensity
 
-## Installation
+## views
 
-Since this extension is currently in private development (`private: true`), you can install it locally:
+- my stats: your coding statistics
+- friends: list of online friends
+- leaderboard: friend rankings
+- friend requests: incoming and outgoing requests
+- activity: recent activity feed
 
-1. Clone the repository
-2. Run `pnpm install`
-3. Run `pnpm build`
-4. Open the `apps/extension` folder in VS Code and press F5 to launch the Extension Development Host.
+## installation
 
-_Note: Once published, you will be able to install it from the VS Code Marketplace._
-
-## Getting Started
-
-1. Click the DevRadar icon in the Activity Bar
-2. Click "Login with GitHub" in the sidebar
-3. Authorize DevRadar to access your GitHub profile
-4. Start coding - your friends will see your status!
-
-## Configuration
-
-Access settings via `File > Preferences > Settings` and search for "DevRadar".
-
-| Setting                          | Default                                              | Description                                                 |
-| -------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
-| Setting                          | Default                                              | Description                                                 |
-| -------------------------------- | --------------------------------------------         | ----------------------------------------------------------- |
-| `devradar.privacyMode`           | `false`                                              | Hide your activity from friends                             |
-| `devradar.showFileName`          | `true`                                               | Show current file name                                      |
-| `devradar.showProject`           | `true`                                               | Show project name                                           |
-| `devradar.showLanguage`          | `true`                                               | Show programming language                                   |
-| `devradar.showStatusBarItem`     | `true`                                               | Show DevRadar status in the status bar                      |
-| `devradar.enableNotifications`   | `true`                                               | Show notifications when friends come online or poke you     |
-| `devradar.serverUrl`             | `"https://wispy-netti-devradar-c95bfbd3.koyeb.app"`  | DevRadar server URL (overridable)                           |
-| `devradar.wsUrl`                 | `"wss://wispy-netti-devradar-c95bfbd3.koyeb.app/ws"` | DevRadar WebSocket URL (overridable)                        |
-| `devradar.blacklistedFiles`      | `[".env", ".env.*", "*.pem", "*.key", ...]`          | File patterns to never broadcast                            |
-| `devradar.blacklistedWorkspaces` | `[]`                                                 | Workspace folders to never broadcast                        |
-| `devradar.idleTimeout`           | `300000`                                             | Time (ms) before going idle (5 mins)                        |
-| `devradar.heartbeatInterval`     | `60000`                                              | Heartbeat interval in milliseconds (60s)                    |
-
-## Commands
-
-Access via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
-
-- **DevRadar: Login with GitHub** - Authenticate with your GitHub account
-- **DevRadar: Logout** - Sign out of DevRadar
-- **DevRadar: Toggle Privacy Mode** - Hide/show your activity
-- **DevRadar: Poke Friend** - Send a notification to a friend
-- **DevRadar: Set Status** - Manually set your status (online/idle/dnd/offline)
-- **DevRadar: Refresh Friends** - Refresh your friends list
-
-## Privacy
-
-DevRadar is built with privacy as a core principle:
-
-- **We NEVER transmit your code** - only metadata (filename, language, project name)
-- **Blacklist sensitive files** - .env files are hidden by default
-- **Privacy Mode** - Go completely invisible when needed
-- **You're in control** - customize exactly what you share
-
-## Development
-
-This extension is part of the DevRadar monorepo.
-
-```bash
-# Install dependencies
+```
 pnpm install
-
-# Build extension
-pnpm --filter @devradar/extension build
-
-# Watch mode
-pnpm --filter @devradar/extension dev
-
-# Package VSIX
-pnpm --filter @devradar/extension package
+pnpm build
 ```
 
-## License
+open `apps/extension` in vs code and press f5 to launch the extension development host.
 
-MIT - see [LICENSE](../../LICENSE)
+## getting started
+
+1. click the devradar icon in the activity bar
+2. login with github
+3. start coding - your friends see your status
+
+## configuration
+
+settings via file > preferences > settings, search for "devradar":
+
+| setting                        | default                              | description                   |
+| ------------------------------ | ------------------------------------ | ----------------------------- |
+| devradar.privacyMode           | false                                | hide your activity            |
+| devradar.showFileName          | true                                 | show current file             |
+| devradar.showProject           | true                                 | show project name             |
+| devradar.showLanguage          | true                                 | show language                 |
+| devradar.showStatusBarItem     | true                                 | show status bar item          |
+| devradar.enableNotifications   | true                                 | enable notifications          |
+| devradar.blacklistedFiles      | [".env", ".env.*", "*.pem", "*.key"] | files to never broadcast      |
+| devradar.blacklistedWorkspaces | []                                   | workspaces to never broadcast |
+| devradar.idleTimeout           | 300000                               | ms before going idle (5 mins) |
+| devradar.heartbeatInterval     | 60000                                | heartbeat interval in ms      |
+
+## commands
+
+access via command palette (ctrl+shift+p / cmd+shift+p):
+
+- devradar: login with github
+- devradar: logout
+- devradar: toggle privacy mode
+- devradar: poke friend
+- devradar: refresh friends
+- devradar: view profile
+- devradar: set status
+- devradar: add friend
+- devradar: accept/reject friend request
+
+## privacy
+
+- code is never transmitted, only metadata
+- sensitive files like .env are hidden by default
+- privacy mode available for complete invisibility
+- blacklist specific files and workspaces
+
+## development
+
+```
+pnpm install
+pnpm build
+pnpm watch     # watch mode for development
+pnpm package   # create vsix package
+```
+
+## license
+
+agpl-3.0-or-later

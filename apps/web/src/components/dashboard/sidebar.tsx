@@ -43,12 +43,14 @@ interface SidebarProps {
 export function Sidebar({ isConnected = false }: SidebarProps) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('sidebar-collapsed') === 'true';
-  });
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('sidebar-collapsed');
+    if (stored === 'true') setCollapsed(true);
+  }, []);
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {
@@ -62,8 +64,8 @@ export function Sidebar({ isConnected = false }: SidebarProps) {
     friendRequestsApi
       .count()
       .then((res) => setRequestCount(res.data.count))
-      .catch(() => {});
-  }, []);
+      .catch((err) => console.warn('Failed to fetch friend request count', err));
+  }, [pathname]);
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';

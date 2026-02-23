@@ -3,7 +3,7 @@ import { Space_Mono, Syne, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 
-import { Header, Footer } from '@/components/layout';
+import { LayoutShell } from '@/components/layout';
 import { SITE_CONFIG } from '@/lib/constants';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/lib/auth';
@@ -104,9 +104,7 @@ export default function RootLayout({
                 }}
               />
 
-              <Header />
-              <main>{children}</main>
-              <Footer />
+              <LayoutShell>{children}</LayoutShell>
             </AuthProvider>
           </ThemeProvider>
         </div>

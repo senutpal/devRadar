@@ -6,16 +6,11 @@ import { Plus, Users, Lock, ArrowRight } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
 import { teamsApi } from '@/lib/api';
-import type { TeamSummary, RoleType } from '@/lib/api';
+import type { TeamSummary } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { CreateTeamModal } from '@/components/dashboard/create-team-modal';
+import { roleBadgeColors } from '@/components/dashboard/constants';
 import { cn } from '@/lib/utils';
-
-const roleBadgeColors: Record<RoleType, string> = {
-  OWNER: 'border-primary text-primary',
-  ADMIN: 'border-foreground/40 text-foreground',
-  MEMBER: 'border-border text-muted-foreground',
-};
 
 function TierGate() {
   return (
@@ -28,11 +23,9 @@ function TierGate() {
         <li>Slack integration</li>
         <li>Role-based access control</li>
       </ul>
-      <Link href="/dashboard/billing">
-        <Button size="sm" className="text-xs font-mono">
-          Upgrade to Team
-        </Button>
-      </Link>
+      <Button asChild size="sm" className="text-xs font-mono">
+        <Link href="/dashboard/billing">Upgrade to Team</Link>
+      </Button>
     </div>
   );
 }

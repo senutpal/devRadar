@@ -20,33 +20,46 @@ export function InviteMemberModal({ open, teamId, onClose, onInvited }: InviteMe
   const [sending, setSending] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (open) {
       setEmail('');
       setRole('MEMBER');
-      setTimeout(() => emailRef.current?.focus(), 50);
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => emailRef.current?.focus());
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  }, [open]);
 
   const handleInvite = async () => {
-    if (!email.includes('@')) {
+    const normalized = email.trim();
+    const atIndex = normalized.indexOf('@');
+    if (atIndex < 1 || atIndex !== normalized.lastIndexOf('@') || normalized.includes(' ')) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    const domain = normalized.slice(atIndex + 1);
+    if (domain.length === 0 || !domain.includes('.')) {
       toast.error('Enter a valid email address');
       return;
     }
 
     setSending(true);
     try {
-      await teamsApi.invite(teamId, email, role);
-      toast.success(`Invitation sent to ${email}`);
+      await teamsApi.invite(teamId, normalized, role);
+      toast.success(`Invitation sent to ${normalized}`);
       onInvited();
       onClose();
     } catch (err) {

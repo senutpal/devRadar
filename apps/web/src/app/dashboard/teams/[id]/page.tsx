@@ -13,13 +13,8 @@ import type { TeamDetail, TeamMember, TeamInvitation, RoleType } from '@/lib/api
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { InviteMemberModal } from '@/components/dashboard/invite-member-modal';
+import { roleBadgeColors } from '@/components/dashboard/constants';
 import { cn } from '@/lib/utils';
-
-const roleBadgeColors: Record<RoleType, string> = {
-  OWNER: 'border-primary text-primary',
-  ADMIN: 'border-foreground/40 text-foreground',
-  MEMBER: 'border-border text-muted-foreground',
-};
 
 function MemberRow({
   member,
@@ -203,11 +198,13 @@ export default function TeamDetailPage() {
 
   const handleRevokeInvitation = async (invitationId: string) => {
     setActionLoading(invitationId);
+    const prev = invitations;
+    setInvitations((list) => list.filter((i) => i.id !== invitationId));
     try {
       await teamsApi.revokeInvite(teamId, invitationId);
-      setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
       toast.success('Invitation revoked');
     } catch {
+      setInvitations(prev);
       toast.error('Failed to revoke invitation');
     } finally {
       setActionLoading(null);
@@ -231,6 +228,8 @@ export default function TeamDetailPage() {
       </div>
     );
   }
+
+  if (!user) return null;
 
   const allMembers: TeamMember[] = [
     {

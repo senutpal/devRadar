@@ -172,6 +172,14 @@ function UserMenu() {
                   <Settings className="w-4 h-4" />
                   Billing
                 </Link>
+                <Link
+                  href="/dashboard/settings"
+                  className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </Link>
               </div>
               <div className="border-t border-border">
                 <button
@@ -210,12 +218,10 @@ export function Header() {
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      return () => {
+        document.body.style.overflow = '';
+      };
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [isMobileMenuOpen]);
 
   return (

@@ -43,14 +43,11 @@ interface SidebarProps {
 export function Sidebar({ isConnected = false }: SidebarProps) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('sidebar-collapsed') === 'true'
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('sidebar-collapsed');
-    if (stored === 'true') setCollapsed(true);
-  }, []);
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {

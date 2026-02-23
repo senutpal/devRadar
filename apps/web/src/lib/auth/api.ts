@@ -23,7 +23,12 @@ export async function api<T>(endpoint: string, options: RequestInit = {}): Promi
   }
 
   const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Failed to parse response (status ${response.status})`);
+  }
 }
 
 export const authApi = {

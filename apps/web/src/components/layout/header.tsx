@@ -11,7 +11,7 @@ import {
   useMotionValue,
   useSpring,
 } from 'motion/react';
-import { Menu, X, Github, ChevronRight, User, LogOut, Settings } from 'lucide-react';
+import { Menu, X, Github, ChevronRight, User, LogOut, Settings, CreditCard } from 'lucide-react';
 
 import { Container } from './container';
 import { Button } from '@/components/ui/button';
@@ -169,7 +169,7 @@ function UserMenu() {
                   className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
-                  <Settings className="w-4 h-4" />
+                  <CreditCard className="w-4 h-4" />
                   Billing
                 </Link>
                 <Link

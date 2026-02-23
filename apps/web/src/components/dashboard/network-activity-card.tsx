@@ -9,16 +9,21 @@ import type { NetworkActivity } from '@/lib/api';
 export function NetworkActivityCard() {
   const [data, setData] = useState<NetworkActivity | null>(null);
   const mountedRef = useRef(true);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
 
     const fetchData = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
       try {
         const res = await leaderboardApi.networkActivity();
         if (mountedRef.current) setData(res.data);
       } catch {
         /* silent */
+      } finally {
+        isFetchingRef.current = false;
       }
     };
 

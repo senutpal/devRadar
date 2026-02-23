@@ -33,8 +33,12 @@ export default function StatsPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) fetchStats();
-  }, [isAuthenticated, fetchStats]);
+    if (isAuthenticated) {
+      fetchStats();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [isAuthenticated, authLoading, fetchStats]);
 
   if (authLoading || loading) {
     return (
@@ -59,6 +63,7 @@ export default function StatsPage() {
 
   if (weekly && weekly.weekStart) {
     const start = new Date(weekly.weekStart);
+    // Approximation: no per-day breakdown available from API (weekly.totalSeconds / 7)
     const avgPerDay = weekly.totalSeconds / 7;
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
@@ -183,7 +188,7 @@ export default function StatsPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Commits</span>
               <span className="text-sm font-mono font-bold tabular-nums">
-                {weekly.totalCommits}
+                {weekly.totalCommits ?? 0}
               </span>
             </div>
           </div>

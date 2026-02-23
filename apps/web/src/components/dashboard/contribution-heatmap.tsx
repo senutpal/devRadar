@@ -73,7 +73,7 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
     weeksList.forEach((week, wi) => {
       const firstReal = week.find((c) => c !== null);
       if (firstReal) {
-        const month = new Date(firstReal.date).getMonth();
+        const month = parseInt(firstReal.date.split('-')[1], 10) - 1;
         if (month !== lastMonth) {
           labels.push({ label: MONTHS[month], col: wi });
           lastMonth = month;
@@ -100,9 +100,9 @@ export function ContributionHeatmap({ data }: ContributionHeatmapProps) {
 
         <div>
           <div className="flex gap-0.5 mb-1 h-4 relative">
-            {monthLabels.map((m, i) => (
+            {monthLabels.map((m) => (
               <div
-                key={i}
+                key={m.col}
                 className="text-[9px] font-mono text-muted-foreground absolute"
                 style={{ left: `${m.col * 13}px` }}
               >

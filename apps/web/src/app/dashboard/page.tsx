@@ -23,6 +23,7 @@ import { SITE_CONFIG } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
 import { statsApi, friendsApi } from '@/lib/api';
 import type { UserStats, Friend } from '@/lib/api';
+import { UserAvatar } from '@/components/dashboard/friend-card';
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -201,99 +202,101 @@ function SignedInView() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-4 mb-8">
-        <div className="border border-border">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              Activity
-            </span>
-            <Link
-              href="/dashboard/stats"
-              className="text-[10px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1"
-            >
-              Details <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="p-4 space-y-3">
-            {weekly?.topLanguage ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Top language</span>
-                  <span className="text-sm font-mono font-bold">{weekly.topLanguage}</span>
-                </div>
-                {weekly.topProject && (
+      {loading ? (
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          {[0, 1].map((i) => (
+            <div key={i} className="border border-border p-4 animate-pulse">
+              <div className="h-3 bg-muted w-20 mb-3" />
+              <div className="h-5 bg-muted w-32 mb-2" />
+              <div className="h-5 bg-muted w-24" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <div className="border border-border">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Activity
+              </span>
+              <Link
+                href="/dashboard/stats"
+                className="text-[10px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                Details <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="p-4 space-y-3">
+              {weekly?.topLanguage ? (
+                <>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Top project</span>
-                    <span className="text-sm font-mono font-bold truncate ml-4 max-w-[200px]">
-                      {weekly.topProject}
-                    </span>
+                    <span className="text-sm">Top language</span>
+                    <span className="text-sm font-mono font-bold">{weekly.topLanguage}</span>
                   </div>
-                )}
-                {stats?.recentAchievements && stats.recentAchievements.length > 0 && (
-                  <div className="pt-2 border-t border-border">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Latest achievement
-                    </span>
-                    <p className="text-sm font-medium mt-1">{stats.recentAchievements[0].title}</p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No activity this week. Install the extension and start coding.
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="border border-border">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              Friends
-            </span>
-            <Link
-              href="/dashboard/friends"
-              className="text-[10px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1"
-            >
-              All <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="p-4">
-            {onlineFriends.length > 0 ? (
-              <div className="space-y-2">
-                {onlineFriends.slice(0, 4).map((f) => (
-                  <div key={f.id} className="flex items-center gap-3">
-                    <div className="relative">
-                      {f.avatarUrl ? (
-                        <Image
-                          src={f.avatarUrl}
-                          alt={f.displayName || f.username}
-                          width={24}
-                          height={24}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 bg-muted flex items-center justify-center text-[10px] font-mono font-bold">
-                          {(f.displayName || f.username).charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-[#32ff32] border border-background" />
-                    </div>
-                    <span className="text-sm truncate flex-1">{f.displayName || f.username}</span>
-                    {f.activity?.language && (
-                      <span className="text-[10px] font-mono text-muted-foreground">
-                        {f.activity.language}
+                  {weekly.topProject && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Top project</span>
+                      <span className="text-sm font-mono font-bold truncate ml-4 max-w-[200px]">
+                        {weekly.topProject}
                       </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No friends online right now.</p>
-            )}
+                    </div>
+                  )}
+                  {stats?.recentAchievements && stats.recentAchievements.length > 0 && (
+                    <div className="pt-2 border-t border-border">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                        Latest achievement
+                      </span>
+                      <p className="text-sm font-medium mt-1">
+                        {stats.recentAchievements[0].title}
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No activity this week. Install the extension and start coding.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="border border-border">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Friends
+              </span>
+              <Link
+                href="/dashboard/friends"
+                className="text-[10px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                All <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="p-4">
+              {onlineFriends.length > 0 ? (
+                <div className="space-y-2">
+                  {onlineFriends.slice(0, 4).map((f) => (
+                    <div key={f.id} className="flex items-center gap-3">
+                      <div className="relative">
+                        <UserAvatar user={f} size={24} />
+                        <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-[#32ff32] border border-background" />
+                      </div>
+                      <span className="text-sm truncate flex-1">{f.displayName || f.username}</span>
+                      {f.activity?.language && (
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          {f.activity.language}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No friends online right now.</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {[

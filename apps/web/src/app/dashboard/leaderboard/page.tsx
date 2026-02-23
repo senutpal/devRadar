@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth';
 import { leaderboardApi } from '@/lib/api';
-import type { LeaderboardEntry } from '@/lib/api';
+import type { LeaderboardEntry, LeaderboardResponse } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LeaderboardTable } from '@/components/dashboard/leaderboard-table';
 import { NetworkActivityCard } from '@/components/dashboard/network-activity-card';
@@ -28,6 +28,8 @@ export default function LeaderboardPage() {
   const [myRank, setMyRank] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -43,7 +45,7 @@ export default function LeaderboardPage() {
             ? leaderboardApi.weeklyCommits
             : null;
 
-      let result;
+      let result: { data: LeaderboardResponse };
       if (fetcher) {
         result = await fetcher(p, 10);
       } else {
@@ -75,7 +77,7 @@ export default function LeaderboardPage() {
   }, [isAuthenticated, tab, fetchLeaderboard]);
 
   const loadMore = () => {
-    const next = page + 1;
+    const next = pageRef.current + 1;
     setPage(next);
     fetchLeaderboard(tab, next, true);
   };
@@ -88,7 +90,7 @@ export default function LeaderboardPage() {
 
       <div className="grid lg:grid-cols-[1fr_280px] gap-6">
         <div>
-          {myRank && (
+          {myRank != null && (
             <div className="border-2 border-primary p-4 mb-6 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import type { LeaderboardEntry } from '@/lib/api';
 
-interface LeaderboardTableProps {
+export interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentUserId: string;
   formatScore: (score: number) => string;

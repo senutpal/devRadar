@@ -11,13 +11,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
 
   const handlePoke = useCallback((payload: unknown) => {
-    const p = payload as { fromUserId: string; message?: string };
-    toast.info(p.message || 'Someone poked you!');
+    if (typeof payload !== 'object' || payload === null) return;
+    const p = payload as Record<string, unknown>;
+    const message = typeof p.message === 'string' ? p.message : 'Someone poked you!';
+    toast.info(message);
   }, []);
 
   const handleAchievement = useCallback((payload: unknown) => {
-    const p = payload as { achievement: { title: string; description: string } };
-    toast.success(`Achievement unlocked: ${p.achievement.title}`);
+    if (typeof payload !== 'object' || payload === null || !('achievement' in payload)) return;
+    const achievement = (payload as Record<string, unknown>).achievement;
+    if (typeof achievement !== 'object' || achievement === null || !('title' in achievement))
+      return;
+    const title = (achievement as Record<string, unknown>).title;
+    if (typeof title !== 'string') return;
+    toast.success(`Achievement unlocked: ${title}`);
   }, []);
 
   const handlers = useMemo(

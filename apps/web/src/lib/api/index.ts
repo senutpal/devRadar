@@ -30,11 +30,13 @@ export const friendsApi = {
     api<PaginatedResponse<Follower>>(`/api/v1/friends/followers?page=${page}&limit=${limit}`),
   follow: (id: string) =>
     api<{ data: { followerId: string; followingId: string; username: string; createdAt: string } }>(
-      `/api/v1/friends/${id}`,
+      `/api/v1/friends/${encodeURIComponent(id)}`,
       { method: 'POST' }
     ),
-  unfollow: (id: string) => api<void>(`/api/v1/friends/${id}`, { method: 'DELETE' }),
-  getMutual: (id: string) => api<{ data: PublicUser[] }>(`/api/v1/friends/${id}/mutual`),
+  unfollow: (id: string) =>
+    api<void>(`/api/v1/friends/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  getMutual: (id: string) =>
+    api<{ data: PublicUser[] }>(`/api/v1/friends/${encodeURIComponent(id)}/mutual`),
 };
 
 // ---- Friend Requests ----
@@ -53,14 +55,18 @@ export const friendRequestsApi = {
       body: JSON.stringify({ toUserId }),
     }),
   accept: (id: string) =>
-    api<{ data: { message: string; friend: PublicUser } }>(`/api/v1/friend-requests/${id}/accept`, {
-      method: 'POST',
-    }),
+    api<{ data: { message: string; friend: PublicUser } }>(
+      `/api/v1/friend-requests/${encodeURIComponent(id)}/accept`,
+      {
+        method: 'POST',
+      }
+    ),
   reject: (id: string) =>
-    api<{ data: { message: string } }>(`/api/v1/friend-requests/${id}/reject`, {
+    api<{ data: { message: string } }>(`/api/v1/friend-requests/${encodeURIComponent(id)}/reject`, {
       method: 'POST',
     }),
-  cancel: (id: string) => api<void>(`/api/v1/friend-requests/${id}`, { method: 'DELETE' }),
+  cancel: (id: string) =>
+    api<void>(`/api/v1/friend-requests/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   count: () => api<{ data: { count: number } }>('/api/v1/friend-requests/count'),
 };
 
@@ -87,13 +93,14 @@ export const teamsApi = {
       method: 'POST',
       body: JSON.stringify({ name, slug }),
     }),
-  get: (id: string) => api<{ data: TeamDetail }>(`/api/v1/teams/${id}`),
+  get: (id: string) => api<{ data: TeamDetail }>(`/api/v1/teams/${encodeURIComponent(id)}`),
   update: (id: string, name: string) =>
     api<{ data: { id: string; name: string; slug: string; updatedAt: string } }>(
-      `/api/v1/teams/${id}`,
+      `/api/v1/teams/${encodeURIComponent(id)}`,
       { method: 'PATCH', body: JSON.stringify({ name }) }
     ),
-  delete: (id: string) => api<void>(`/api/v1/teams/${id}`, { method: 'DELETE' }),
+  delete: (id: string) =>
+    api<void>(`/api/v1/teams/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   invite: (id: string, email: string, role: 'ADMIN' | 'MEMBER' = 'MEMBER') =>
     api<{
       data: {
@@ -104,25 +111,31 @@ export const teamsApi = {
         invitedBy: string;
         expiresAt: string;
       };
-    }>(`/api/v1/teams/${id}/invite`, {
+    }>(`/api/v1/teams/${encodeURIComponent(id)}/invite`, {
       method: 'POST',
       body: JSON.stringify({ email, role }),
     }),
   join: (id: string, token: string) =>
     api<{ data: { teamId: string; teamName: string; role: string; message: string } }>(
-      `/api/v1/teams/${id}/join`,
+      `/api/v1/teams/${encodeURIComponent(id)}/join`,
       { method: 'POST', body: JSON.stringify({ token }) }
     ),
   updateRole: (teamId: string, userId: string, role: 'ADMIN' | 'MEMBER') =>
     api<{ data: { userId: string; username: string; displayName: string | null; role: string } }>(
-      `/api/v1/teams/${teamId}/members/${userId}`,
+      `/api/v1/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`,
       { method: 'PATCH', body: JSON.stringify({ role }) }
     ),
   removeMember: (teamId: string, userId: string) =>
-    api<void>(`/api/v1/teams/${teamId}/members/${userId}`, { method: 'DELETE' }),
-  invitations: (id: string) => api<{ data: TeamInvitation[] }>(`/api/v1/teams/${id}/invitations`),
+    api<void>(`/api/v1/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    }),
+  invitations: (id: string) =>
+    api<{ data: TeamInvitation[] }>(`/api/v1/teams/${encodeURIComponent(id)}/invitations`),
   revokeInvite: (teamId: string, invitationId: string) =>
-    api<void>(`/api/v1/teams/${teamId}/invitations/${invitationId}`, { method: 'DELETE' }),
+    api<void>(
+      `/api/v1/teams/${encodeURIComponent(teamId)}/invitations/${encodeURIComponent(invitationId)}`,
+      { method: 'DELETE' }
+    ),
 };
 
 // ---- Users ----
@@ -137,7 +150,7 @@ export const usersApi = {
         status: string;
         activity?: unknown;
       };
-    }>(`/api/v1/users/${id}`),
+    }>(`/api/v1/users/${encodeURIComponent(id)}`),
   updateMe: (data: { displayName?: string | null; privacyMode?: boolean }) =>
     api<{ data: PublicUser & { tier: string; privacyMode: boolean } }>('/api/v1/users/me', {
       method: 'PATCH',

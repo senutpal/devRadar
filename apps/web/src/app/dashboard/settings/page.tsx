@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Monitor, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/lib/auth';
@@ -29,7 +29,7 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export default function SettingsPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, isLoading: authLoading } = useAuth();
   const { theme, setTheme } = useTheme();
 
   const [displayName, setDisplayName] = useState('');
@@ -38,14 +38,13 @@ export default function SettingsPage() {
   const [friendReqNotifs, setFriendReqNotifs] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
       setPrivacyMode(user.privacyMode);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     const storedPoke = localStorage.getItem('pref-poke-notifications');
@@ -91,6 +90,22 @@ export default function SettingsPage() {
     setFriendReqNotifs(checked);
     localStorage.setItem('pref-friend-request-notifications', String(checked));
   };
+
+  if (authLoading) {
+    return (
+      <div className="p-6 lg:p-10">
+        <div className="h-6 bg-muted w-32 mb-8" />
+        <div className="max-w-2xl space-y-6">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="border border-border p-5 animate-pulse">
+              <div className="h-3 bg-muted w-20 mb-3" />
+              <div className="h-8 bg-muted w-48" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (!user) return null;
 
@@ -214,47 +229,12 @@ export default function SettingsPage() {
 
         <div className="border-2 border-destructive/50 p-5">
           <SectionHeader title="Danger zone" />
-          {!showDeleteConfirm ? (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-xs font-mono"
-            >
+          <div className="space-y-2">
+            <Button variant="destructive" size="sm" disabled className="text-xs font-mono">
               Delete account
             </Button>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground">
-                  This will permanently delete your account and all data. This action cannot be
-                  undone.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    toast.info('Account deletion is coming soon');
-                    setShowDeleteConfirm(false);
-                  }}
-                  className="text-xs font-mono"
-                >
-                  Confirm delete
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="text-xs font-mono"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
+            <p className="text-[10px] text-muted-foreground">Account deletion coming soon</p>
+          </div>
         </div>
       </div>
     </div>

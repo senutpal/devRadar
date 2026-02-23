@@ -27,24 +27,29 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
   const [slugEdited, setSlugEdited] = useState(false);
   const [creating, setCreating] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (open) {
       setName('');
       setSlug('');
       setSlugEdited(false);
-      setTimeout(() => nameRef.current?.focus(), 50);
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => nameRef.current?.focus());
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  }, [open]);
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -60,6 +65,12 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
     }
     if (slug.length < 2 || slug.length > 30) {
       toast.error('Slug must be 2-30 characters');
+      return;
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      toast.error(
+        'Invalid slug format: use lowercase letters, numbers and single hyphens (no leading/trailing or consecutive hyphens)'
+      );
       return;
     }
 
@@ -102,10 +113,14 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
 
         <div className="space-y-4">
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1">
+            <label
+              htmlFor="team-name"
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1"
+            >
               Team name
             </label>
             <input
+              id="team-name"
               ref={nameRef}
               type="text"
               value={name}
@@ -118,10 +133,14 @@ export function CreateTeamModal({ open, onClose, onCreated }: CreateTeamModalPro
           </div>
 
           <div>
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1">
+            <label
+              htmlFor="team-slug"
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1"
+            >
               Slug
             </label>
             <input
+              id="team-slug"
               type="text"
               value={slug}
               onChange={(e) => {

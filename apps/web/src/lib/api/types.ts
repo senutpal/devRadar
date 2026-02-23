@@ -38,7 +38,7 @@ export interface ActivityPayload {
 }
 
 export interface Friend extends PublicUser {
-  tier: string;
+  tier: TierType;
   privacyMode: boolean;
   status: UserStatusType | 'incognito';
   activity?: ActivityPayload;
@@ -46,7 +46,7 @@ export interface Friend extends PublicUser {
 }
 
 export interface Follower extends PublicUser {
-  tier: string;
+  tier: TierType;
   followedAt: string;
 }
 
@@ -137,7 +137,7 @@ export interface TeamDetail {
   id: string;
   name: string;
   slug: string;
-  tier: string;
+  tier: TierType;
   owner: PublicUser;
   members: TeamMember[];
   pendingInvitations: number;

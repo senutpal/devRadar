@@ -57,7 +57,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const connect = useCallback(() => {
     const token = getToken();
-    if (!token || wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (
+      !token ||
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    )
+      return;
 
     const ws = new WebSocket(`${WS_URL}?token=${token}`);
     wsRef.current = ws;
@@ -72,8 +77,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       try {
         const msg: WebSocketMessage = JSON.parse(event.data);
         handlersRef.current?.[msg.type]?.(msg.payload, msg);
-      } catch {
-        /* malformed */
+      } catch (err) {
+        console.warn('WebSocket: malformed message', err, event.data);
       }
     };
 
@@ -105,6 +110,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     attemptRef.current = RECONNECT.maxAttempts;
     if (wsRef.current) {
+      wsRef.current.onclose = null;
       wsRef.current.close(1000);
       wsRef.current = null;
     }

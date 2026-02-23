@@ -22,7 +22,8 @@ export async function api<T>(endpoint: string, options: RequestInit = {}): Promi
     throw new Error(error.message || 'An error occurred');
   }
 
-  return response.json();
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const authApi = {

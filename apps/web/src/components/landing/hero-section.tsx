@@ -65,7 +65,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section ref={heroRef} className="relative min-h-screen pt-24 overflow-x-hidden">
+    <section ref={heroRef} className="relative min-h-screen pt-24 overflow-clip">
       <div className="absolute inset-0 bg-background" />
       <div className="absolute inset-0 bg-grid-brutal" />
 

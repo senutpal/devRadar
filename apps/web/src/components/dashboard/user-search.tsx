@@ -21,6 +21,7 @@ export function UserSearch({ existingFriendIds, pendingRequestUserIds }: UserSea
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const requestCounterRef = useRef(0);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -31,14 +32,21 @@ export function UserSearch({ existingFriendIds, pendingRequestUserIds }: UserSea
     }
 
     debounceRef.current = setTimeout(async () => {
+      const currentRequest = ++requestCounterRef.current;
       setSearching(true);
       try {
         const res = await usersApi.search(query);
-        setResults(res.data);
+        if (currentRequest === requestCounterRef.current) {
+          setResults(res.data);
+        }
       } catch {
-        setResults([]);
+        if (currentRequest === requestCounterRef.current) {
+          setResults([]);
+        }
       } finally {
-        setSearching(false);
+        if (currentRequest === requestCounterRef.current) {
+          setSearching(false);
+        }
       }
     }, 300);
 

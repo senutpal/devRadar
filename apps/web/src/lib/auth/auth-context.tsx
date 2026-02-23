@@ -9,6 +9,7 @@ export interface User {
   avatarUrl: string | null;
   tier: 'FREE' | 'PRO' | 'TEAM';
   githubId: string;
+  privacyMode: boolean;
 }
 
 interface AuthContextType {

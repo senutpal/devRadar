@@ -47,9 +47,12 @@ function UserAvatar({ user, size = 28 }: { user: PublicUser; size?: number }) {
   );
 }
 
+function isFriendWithStatus(x: Friend | Follower): x is Friend {
+  return 'status' in x;
+}
+
 export function FriendItem({ friend, onUnfollow, loading }: FriendItemProps) {
-  const f = friend as Friend;
-  const hasStatus = 'status' in friend;
+  const hasStatus = isFriendWithStatus(friend);
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-b-0">
@@ -59,11 +62,11 @@ export function FriendItem({ friend, onUnfollow, loading }: FriendItemProps) {
           <span className="text-sm font-medium truncate">
             {friend.displayName || friend.username}
           </span>
-          {hasStatus && <StatusDot status={f.status} />}
+          {hasStatus && <StatusDot status={friend.status} />}
         </div>
         <span className="text-[10px] font-mono text-muted-foreground">
           @{friend.username}
-          {hasStatus && f.activity?.language && <> &middot; {f.activity.language}</>}
+          {hasStatus && friend.activity?.language && <> &middot; {friend.activity.language}</>}
         </span>
       </div>
       {onUnfollow && (

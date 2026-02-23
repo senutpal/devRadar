@@ -11,7 +11,7 @@ import { FriendItem, RequestCard } from '@/components/dashboard/friend-card';
 import { UserSearch } from '@/components/dashboard/user-search';
 
 export default function FriendsPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [incoming, setIncoming] = useState<FriendRequest[]>([]);
@@ -19,8 +19,8 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [fr, fo, inc, out] = await Promise.allSettled([
         friendsApi.list(1, 50),
@@ -39,8 +39,12 @@ export default function FriendsPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) fetchAll();
-  }, [isAuthenticated, fetchAll]);
+    if (isAuthenticated) {
+      fetchAll();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [isAuthenticated, authLoading, fetchAll]);
 
   const handleUnfollow = async (id: string) => {
     setActionLoading(id);
@@ -61,7 +65,7 @@ export default function FriendsPage() {
       await friendRequestsApi.accept(id);
       setIncoming((prev) => prev.filter((r) => r.id !== id));
       toast.success('Request accepted');
-      fetchAll();
+      fetchAll(true);
     } catch {
       toast.error('Failed to accept');
     } finally {
@@ -73,6 +77,7 @@ export default function FriendsPage() {
     setActionLoading(id);
     try {
       await friendRequestsApi.reject(id);
+      toast.success('Request rejected');
       setIncoming((prev) => prev.filter((r) => r.id !== id));
     } catch {
       toast.error('Failed to reject');

@@ -22,6 +22,7 @@ import {
 } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
+import { sendTeamInviteEmail } from '@/services/email';
 
 /* ============================================================================
  * Validation Schemas
@@ -443,6 +444,212 @@ export function teamRoutes(app: FastifyInstance): void {
     }
   );
 
+  // GET /:id/analytics - Team analytics
+  app.get(
+    '/:id/analytics',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+
+      const paramsResult = TeamIdParamsSchema.safeParse(request.params);
+      if (!paramsResult.success) {
+        throw new ValidationError('Invalid team ID');
+      }
+
+      const { id: teamId } = paramsResult.data;
+      await checkTeamMember(db, teamId, userId);
+
+      // Get all team member IDs
+      const team = await db.team.findUnique({
+        where: { id: teamId },
+        select: { ownerId: true },
+      });
+
+      if (!team) throw new NotFoundError('Team', teamId);
+
+      const members = await db.teamMember.findMany({
+        where: { teamId },
+        select: { userId: true },
+      });
+
+      const memberIds = [...new Set([...members.map((m) => m.userId), team.ownerId])];
+
+      // Get last 4 weeks of stats for all members
+      const fourWeeksAgo = new Date();
+      fourWeeksAgo.setUTCDate(fourWeeksAgo.getUTCDate() - 28);
+      fourWeeksAgo.setUTCHours(0, 0, 0, 0);
+
+      const stats = await db.weeklyStats.findMany({
+        where: {
+          userId: { in: memberIds },
+          weekStart: { gte: fourWeeksAgo },
+        },
+        include: {
+          user: {
+            select: { id: true, username: true, displayName: true, avatarUrl: true },
+          },
+        },
+        orderBy: { weekStart: 'asc' },
+      });
+
+      // Aggregate by week
+      const weeklyAggregates = new Map<
+        string,
+        {
+          totalSeconds: number;
+          totalCommits: number;
+          activeMembers: number;
+          languages: Map<string, number>;
+        }
+      >();
+
+      for (const s of stats) {
+        const week = s.weekStart.toISOString();
+        const existing = weeklyAggregates.get(week) ?? {
+          totalSeconds: 0,
+          totalCommits: 0,
+          activeMembers: 0,
+          languages: new Map<string, number>(),
+        };
+        existing.totalSeconds += s.totalSeconds;
+        existing.totalCommits += s.totalCommits;
+        existing.activeMembers += 1;
+        if (s.topLanguage) {
+          existing.languages.set(s.topLanguage, (existing.languages.get(s.topLanguage) ?? 0) + 1);
+        }
+        weeklyAggregates.set(week, existing);
+      }
+
+      // Per-member summary
+      const memberStats = new Map<
+        string,
+        {
+          totalSeconds: number;
+          totalCommits: number;
+          username: string;
+          displayName: string | null;
+          avatarUrl: string | null;
+        }
+      >();
+
+      for (const s of stats) {
+        const existing = memberStats.get(s.userId) ?? {
+          totalSeconds: 0,
+          totalCommits: 0,
+          username: s.user.username,
+          displayName: s.user.displayName,
+          avatarUrl: s.user.avatarUrl,
+        };
+        existing.totalSeconds += s.totalSeconds;
+        existing.totalCommits += s.totalCommits;
+        memberStats.set(s.userId, existing);
+      }
+
+      // Language breakdown
+      const languageCounts = new Map<string, number>();
+      for (const s of stats) {
+        if (s.topLanguage) {
+          languageCounts.set(
+            s.topLanguage,
+            (languageCounts.get(s.topLanguage) ?? 0) + s.totalSeconds
+          );
+        }
+      }
+
+      const topLanguages = Array.from(languageCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([language, seconds]) => ({ language, seconds }));
+
+      return reply.send({
+        data: {
+          weeklyTrend: Array.from(weeklyAggregates.entries()).map(([week, data]) => ({
+            weekStart: week,
+            totalSeconds: data.totalSeconds,
+            totalCommits: data.totalCommits,
+            activeMembers: data.activeMembers,
+          })),
+          memberActivity: Array.from(memberStats.entries())
+            .map(([memberId, data]) => ({
+              userId: memberId,
+              ...data,
+            }))
+            .sort((a, b) => b.totalSeconds - a.totalSeconds),
+          topLanguages,
+          summary: {
+            totalMembers: memberIds.length,
+            totalSeconds: Array.from(memberStats.values()).reduce(
+              (sum, m) => sum + m.totalSeconds,
+              0
+            ),
+            totalCommits: Array.from(memberStats.values()).reduce(
+              (sum, m) => sum + m.totalCommits,
+              0
+            ),
+          },
+        },
+      });
+    }
+  );
+
+  // GET /:id/conflicts - Get active conflicts for a team
+  app.get(
+    '/:id/conflicts',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+      const paramsResult = TeamIdParamsSchema.safeParse(request.params);
+      if (!paramsResult.success) {
+        throw new ValidationError('Invalid team ID');
+      }
+      const { id: teamId } = paramsResult.data;
+      await checkTeamMember(db, teamId, userId);
+
+      // Scan Redis for all editing keys for this team
+      const redis = (await import('@/services/redis')).getRedis();
+      const pattern = `editing:${teamId}:*`;
+      const conflicts: { fileHash: string; editors: string[] }[] = [];
+      let cursor = '0';
+
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+
+        for (const key of keys) {
+          const editors = await redis.smembers(key);
+          if (editors.length > 1) {
+            const fileHash = key.split(':').pop() ?? '';
+            conflicts.push({ fileHash, editors });
+          }
+        }
+      } while (cursor !== '0');
+
+      // Resolve editor user details
+      const allEditorIds = [...new Set(conflicts.flatMap((c) => c.editors))];
+      const users =
+        allEditorIds.length > 0
+          ? await db.user.findMany({
+              where: { id: { in: allEditorIds } },
+              select: { id: true, username: true, displayName: true, avatarUrl: true },
+            })
+          : [];
+
+      const userMap = new Map(users.map((u) => [u.id, u]));
+
+      return reply.send({
+        data: conflicts.map((c) => ({
+          fileHash: c.fileHash,
+          editors: c.editors.map((id) => ({
+            id,
+            username: userMap.get(id)?.username ?? 'Unknown',
+            displayName: userMap.get(id)?.displayName ?? null,
+            avatarUrl: userMap.get(id)?.avatarUrl ?? null,
+          })),
+        })),
+      });
+    }
+  );
+
   // POST /:id/invite - Invite member
   app.post(
     '/:id/invite',
@@ -530,7 +737,18 @@ export function teamRoutes(app: FastifyInstance): void {
 
       logger.info({ teamId, email, inviterId: userId }, 'Team invitation created');
 
-      // TODO: Send invitation email with token
+      // Send invitation email (non-blocking)
+      const joinUrl = `${env.WEB_APP_URL}/dashboard/teams/${teamId}/join?token=${token}`;
+      sendTeamInviteEmail({
+        to: email,
+        teamName: invitation.team.name,
+        inviterName: invitation.inviter.displayName ?? invitation.inviter.username,
+        role: invitation.role,
+        joinUrl,
+        expiresAt: invitation.expiresAt.toISOString(),
+      }).catch((err: unknown) => {
+        logger.error({ error: err, email, teamId }, 'Failed to send invitation email');
+      });
 
       return reply.status(201).send({
         data: {

@@ -68,6 +68,11 @@ export function FriendItem({ friend, onUnfollow, loading }: FriendItemProps) {
           @{friend.username}
           {hasStatus && friend.activity?.language && <> &middot; {friend.activity.language}</>}
         </span>
+        {hasStatus && friend.customStatus && (
+          <p className="text-[10px] text-muted-foreground font-mono truncate">
+            {friend.customStatus}
+          </p>
+        )}
       </div>
       {onUnfollow && (
         <Button

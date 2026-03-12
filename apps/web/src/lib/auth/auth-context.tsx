@@ -10,6 +10,8 @@ export interface User {
   tier: 'FREE' | 'PRO' | 'TEAM';
   githubId: string;
   privacyMode: boolean;
+  ghostMode: boolean;
+  customStatus: string | null;
 }
 
 interface AuthContextType {
@@ -18,6 +20,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   signIn: () => void;
   signOut: () => void;
+  signInWithSSO: () => void;
+  ssoEnabled: boolean;
   refreshUser: () => Promise<void>;
 }
 
@@ -28,6 +32,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -58,8 +63,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Handle token from SSO redirect (e.g. /dashboard?token=xxx)
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     refreshUser();
   }, [refreshUser]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/auth/sso/status`)
+      .then((res) => res.json())
+      .then((data: { enabled: boolean }) => setSsoEnabled(data.enabled))
+      .catch(() => setSsoEnabled(false));
+  }, []);
 
   const signIn = () => {
     const token = localStorage.getItem('auth_token');
@@ -68,6 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       window.location.href = `${API_URL}/auth/github?redirect_uri=${window.location.origin}/dashboard`;
     }
+  };
+
+  const signInWithSSO = () => {
+    window.location.href = `${API_URL}/auth/sso`;
   };
 
   const signOut = async () => {
@@ -96,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         signIn,
         signOut,
+        signInWithSSO,
+        ssoEnabled,
         refreshUser,
       }}
     >

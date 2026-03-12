@@ -68,6 +68,8 @@ export const LoginRequestSchema = z.object({
 export const UserUpdateSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   privacyMode: z.boolean().optional(),
+  ghostMode: z.boolean().optional(),
+  customStatus: z.string().max(50).optional().nullable(),
 });
 
 export const PaginationQuerySchema = z.object({

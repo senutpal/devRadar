@@ -83,6 +83,8 @@ export interface UserDTO {
   avatarUrl: string | null;
   tier: TierType;
   privacyMode: boolean;
+  customStatus: string | null;
+  ghostMode: boolean;
   /** Account creation timestamp as ISO 8601 / RFC3339 string (e.g., "2024-01-01T12:00:00Z") */
   createdAt: string;
 }

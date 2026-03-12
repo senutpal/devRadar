@@ -11,6 +11,7 @@ import type { UserDTO } from '@devradar/shared';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 import { NotFoundError, ValidationError } from '@/lib/errors';
+import { logger } from '@/lib/logger';
 import { getDb } from '@/services/db';
 import { getPresence } from '@/services/redis';
 
@@ -35,6 +36,8 @@ function toUserDTO(user: {
   avatarUrl: string | null;
   tier: string;
   privacyMode: boolean;
+  customStatus: string | null;
+  ghostMode: boolean;
   createdAt: Date;
 }): UserDTO {
   /* Runtime validation of tier value */
@@ -50,6 +53,8 @@ function toUserDTO(user: {
     avatarUrl: user.avatarUrl,
     tier,
     privacyMode: user.privacyMode,
+    customStatus: user.customStatus,
+    ghostMode: user.ghostMode,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -143,6 +148,8 @@ export function userRoutes(app: FastifyInstance): void {
           avatarUrl: true,
           tier: true,
           privacyMode: true,
+          customStatus: true,
+          ghostMode: true,
           createdAt: true,
           _count: {
             select: {
@@ -201,12 +208,23 @@ export function userRoutes(app: FastifyInstance): void {
 
       const updateData = result.data;
       /* Build update object explicitly to handle exactOptionalPropertyTypes */
-      const prismaUpdateData: { displayName?: string | null; privacyMode?: boolean } = {};
+      const prismaUpdateData: {
+        displayName?: string | null;
+        privacyMode?: boolean;
+        ghostMode?: boolean;
+        customStatus?: string | null;
+      } = {};
       if (updateData.displayName !== undefined) {
         prismaUpdateData.displayName = updateData.displayName;
       }
       if (updateData.privacyMode !== undefined) {
         prismaUpdateData.privacyMode = updateData.privacyMode;
+      }
+      if (updateData.ghostMode !== undefined) {
+        prismaUpdateData.ghostMode = updateData.ghostMode;
+      }
+      if (updateData.customStatus !== undefined) {
+        prismaUpdateData.customStatus = updateData.customStatus;
       }
 
       const user = await db.user.update({
@@ -217,6 +235,25 @@ export function userRoutes(app: FastifyInstance): void {
       return reply.send({
         data: toUserDTO(user),
       });
+    }
+  );
+
+  // DELETE /me - Delete current user account
+  app.delete(
+    '/me',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+
+      await db.$transaction(async (tx) => {
+        // Delete teams owned by this user (cascade handles members/invitations)
+        await tx.team.deleteMany({ where: { ownerId: userId } });
+        // Delete the user (cascade handles follows, friend requests, achievements, stats, team memberships)
+        await tx.user.delete({ where: { id: userId } });
+      });
+
+      logger.info({ userId }, 'User account deleted');
+      return reply.status(204).send();
     }
   );
 }

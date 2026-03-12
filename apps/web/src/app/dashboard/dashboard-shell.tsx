@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/lib/auth';
 import { useWebSocket } from '@/lib/hooks';
-import { Sidebar } from '@/components/dashboard';
+import { Sidebar, ConflictToastListener } from '@/components/dashboard';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -44,6 +44,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-background">
       <Sidebar isConnected={isConnected} />
       <main className="flex-1 min-w-0">{children}</main>
+      <ConflictToastListener />
     </div>
   );
 }

@@ -40,6 +40,8 @@ export interface ActivityPayload {
 export interface Friend extends PublicUser {
   tier: TierType;
   privacyMode: boolean;
+  ghostMode?: boolean;
+  customStatus?: string | null;
   status: UserStatusType | 'incognito';
   activity?: ActivityPayload;
   followedAt: string;
@@ -91,6 +93,30 @@ export interface UserStats {
   todaySession: number;
   weeklyStats: WeeklyStats | null;
   recentAchievements: Achievement[];
+}
+
+// ---- History ----
+export interface DailySession {
+  date: string;
+  seconds: number;
+}
+
+export interface StatsHistory {
+  range: string;
+  dailySessions: DailySession[];
+  weeklyBreakdown: {
+    weekStart: string;
+    totalSeconds: number;
+    totalSessions: number;
+    totalCommits: number;
+    topLanguage: string | null;
+    topProject: string | null;
+  }[];
+  summary: {
+    totalSeconds: number;
+    activeDays: number;
+    totalDays: number;
+  };
 }
 
 // ---- Leaderboard ----
@@ -152,6 +178,41 @@ export interface TeamInvitation {
   invitedBy: string;
   expiresAt: string;
   createdAt: string;
+}
+
+// ---- Team Analytics ----
+export interface TeamAnalytics {
+  weeklyTrend: {
+    weekStart: string;
+    totalSeconds: number;
+    totalCommits: number;
+    activeMembers: number;
+  }[];
+  memberActivity: {
+    userId: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    totalSeconds: number;
+    totalCommits: number;
+  }[];
+  topLanguages: { language: string; seconds: number }[];
+  summary: {
+    totalMembers: number;
+    totalSeconds: number;
+    totalCommits: number;
+  };
+}
+
+// ---- Conflict Radar ----
+export interface ConflictAlert {
+  fileHash: string;
+  editors: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  }[];
 }
 
 // ---- WebSocket ----

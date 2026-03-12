@@ -5,7 +5,8 @@ import { Flame, Snowflake, Clock, Code2, Hash, Layers } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
 import { statsApi } from '@/lib/api';
-import type { UserStats } from '@/lib/api';
+import type { UserStats, StatsHistory } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { ContributionHeatmap } from '@/components/dashboard/contribution-heatmap';
 import { AchievementCard } from '@/components/dashboard/achievement-card';
 
@@ -16,9 +17,11 @@ function formatTime(seconds: number): string {
 }
 
 export default function StatsPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<'7d' | '14d' | '30d'>('7d');
+  const [history, setHistory] = useState<StatsHistory | null>(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -32,13 +35,23 @@ export default function StatsPage() {
     }
   }, []);
 
+  const fetchHistory = useCallback(async (r: '7d' | '14d' | '30d') => {
+    try {
+      const res = await statsApi.getHistory(r);
+      setHistory(res.data);
+    } catch {
+      /* handled by empty state */
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchStats();
+      fetchHistory(range);
     } else if (!authLoading) {
       setLoading(false);
     }
-  }, [isAuthenticated, authLoading, fetchStats]);
+  }, [isAuthenticated, authLoading, fetchStats, fetchHistory, range]);
 
   if (authLoading || loading) {
     return (
@@ -85,6 +98,68 @@ export default function StatsPage() {
   return (
     <div className="p-6 lg:p-10">
       <h1 className="text-display text-xl font-bold mb-8">Stats</h1>
+
+      <div className="flex gap-2 mb-6">
+        {(['7d', '14d', '30d'] as const).map((r) => {
+          const needsPro = r !== '7d' && user?.tier === 'FREE';
+          return (
+            <button
+              key={r}
+              onClick={() => !needsPro && setRange(r)}
+              disabled={needsPro}
+              className={cn(
+                'px-3 py-1.5 border text-xs font-mono transition-colors',
+                range === r
+                  ? 'border-foreground text-foreground'
+                  : 'border-border text-muted-foreground hover:border-foreground/30',
+                needsPro && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              {r}
+              {needsPro && <span className="ml-1 text-amber-500 text-[10px]">PRO</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {history && (
+        <div className="border border-border p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Daily activity
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {history.summary.activeDays}/{history.summary.totalDays} active days
+            </span>
+          </div>
+          <div className="flex items-end gap-px h-24">
+            {history.dailySessions.map((day) => {
+              const maxSeconds = Math.max(...history.dailySessions.map((d) => d.seconds), 1);
+              const height = day.seconds > 0 ? Math.max(4, (day.seconds / maxSeconds) * 100) : 0;
+              return (
+                <div
+                  key={day.date}
+                  className="flex-1 group relative"
+                  title={`${day.date}: ${Math.round(day.seconds / 60)}min`}
+                >
+                  <div
+                    className="w-full bg-foreground/20 hover:bg-foreground/40 transition-colors"
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {history.dailySessions[0]?.date ?? ''}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {history.dailySessions[history.dailySessions.length - 1]?.date ?? ''}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="border border-border p-4">

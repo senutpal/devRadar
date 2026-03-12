@@ -2,6 +2,7 @@ import { api } from '@/lib/auth/api';
 import type {
   UserStats,
   WeeklyStats,
+  StatsHistory,
   Friend,
   Follower,
   FriendRequest,
@@ -11,6 +12,8 @@ import type {
   TeamSummary,
   TeamDetail,
   TeamInvitation,
+  TeamAnalytics,
+  ConflictAlert,
   PaginatedResponse,
 } from './types';
 
@@ -20,6 +23,8 @@ export * from './types';
 export const statsApi = {
   getMyStats: () => api<{ data: UserStats }>('/api/v1/stats/me'),
   getWeeklyStats: () => api<{ data: WeeklyStats }>('/api/v1/stats/weekly'),
+  getHistory: (range: '7d' | '14d' | '30d' = '7d') =>
+    api<{ data: StatsHistory }>(`/api/v1/stats/history?range=${range}`),
 };
 
 // ---- Friends ----
@@ -82,6 +87,10 @@ export const leaderboardApi = {
     ),
   friends: () => api<{ data: LeaderboardResponse }>('/api/v1/leaderboards/friends'),
   networkActivity: () => api<{ data: NetworkActivity }>('/api/v1/leaderboards/network-activity'),
+  team: (teamId: string) =>
+    api<{ data: { leaderboard: LeaderboardResponse['leaderboard']; myRank: number | null } }>(
+      `/api/v1/leaderboards/team/${encodeURIComponent(teamId)}`
+    ),
 };
 
 // ---- Teams ----
@@ -136,6 +145,24 @@ export const teamsApi = {
       `/api/v1/teams/${encodeURIComponent(teamId)}/invitations/${encodeURIComponent(invitationId)}`,
       { method: 'DELETE' }
     ),
+  analytics: (id: string) =>
+    api<{ data: TeamAnalytics }>(`/api/v1/teams/${encodeURIComponent(id)}/analytics`),
+  conflicts: (id: string) =>
+    api<{ data: ConflictAlert[] }>(`/api/v1/teams/${encodeURIComponent(id)}/conflicts`),
+};
+
+// ---- Slack ----
+export const slackApi = {
+  getStatus: (teamId: string) =>
+    api<{
+      connected: boolean;
+      slackWorkspaceId?: string;
+      slackTeamName?: string;
+      channelId?: string;
+      connectedAt?: string;
+    }>(`/slack/status/${encodeURIComponent(teamId)}`),
+  disconnect: (teamId: string) =>
+    api<void>(`/slack/disconnect/${encodeURIComponent(teamId)}`, { method: 'DELETE' }),
 };
 
 // ---- Users ----
@@ -151,9 +178,22 @@ export const usersApi = {
         activity?: unknown;
       };
     }>(`/api/v1/users/${encodeURIComponent(id)}`),
-  updateMe: (data: { displayName?: string | null; privacyMode?: boolean }) =>
-    api<{ data: PublicUser & { tier: string; privacyMode: boolean } }>('/api/v1/users/me', {
+  updateMe: (data: {
+    displayName?: string | null;
+    privacyMode?: boolean;
+    ghostMode?: boolean;
+    customStatus?: string | null;
+  }) =>
+    api<{
+      data: PublicUser & {
+        tier: string;
+        privacyMode: boolean;
+        ghostMode: boolean;
+        customStatus: string | null;
+      };
+    }>('/api/v1/users/me', {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+  deleteAccount: () => api<void>('/api/v1/users/me', { method: 'DELETE' }),
 };

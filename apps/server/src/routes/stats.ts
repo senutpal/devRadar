@@ -396,6 +396,82 @@ export function statsRoutes(app: FastifyInstance): void {
   );
 
   /**
+   * GET /stats/history - Get historical stats with time range
+   * Query params: range=7d|14d|30d (default 7d)
+   */
+  const HistoryQuerySchema = z.object({
+    range: z.enum(['7d', '14d', '30d']).default('7d'),
+  });
+
+  app.get(
+    '/history',
+    { onRequest: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { userId } = request.user as { userId: string };
+      const queryResult = HistoryQuerySchema.safeParse(request.query);
+      const range = queryResult.success ? queryResult.data.range : '7d';
+
+      const days = range === '30d' ? 30 : range === '14d' ? 14 : 7;
+      const startDate = new Date();
+      startDate.setUTCDate(startDate.getUTCDate() - days);
+      startDate.setUTCHours(0, 0, 0, 0);
+
+      // Get weekly stats records that fall within the range
+      const stats = await db.weeklyStats.findMany({
+        where: {
+          userId,
+          weekStart: { gte: startDate },
+        },
+        orderBy: { weekStart: 'asc' },
+      });
+
+      // Get daily session data from Redis for more granular view
+      const redis = getRedis();
+      const pipeline = redis.pipeline();
+      const dates: string[] = [];
+
+      for (let i = 0; i < days; i++) {
+        const date = new Date();
+        date.setUTCDate(date.getUTCDate() - i);
+        const dateStr = date.toISOString().split('T')[0] ?? '';
+        dates.push(dateStr);
+        pipeline.get(REDIS_KEYS.dailySession(userId, dateStr));
+      }
+
+      const results = await pipeline.exec();
+
+      const dailySessions = dates
+        .map((date, i) => ({
+          date,
+          seconds: results?.[i]?.[1] ? parseInt(results[i][1] as string, 10) : 0,
+        }))
+        .reverse();
+
+      const weeklyBreakdown = stats.map((s) => ({
+        weekStart: s.weekStart.toISOString(),
+        totalSeconds: s.totalSeconds,
+        totalSessions: s.totalSessions,
+        totalCommits: s.totalCommits,
+        topLanguage: s.topLanguage,
+        topProject: s.topProject,
+      }));
+
+      return reply.send({
+        data: {
+          range,
+          dailySessions,
+          weeklyBreakdown,
+          summary: {
+            totalSeconds: dailySessions.reduce((sum, d) => sum + d.seconds, 0),
+            activeDays: dailySessions.filter((d) => d.seconds > 0).length,
+            totalDays: days,
+          },
+        },
+      });
+    }
+  );
+
+  /**
    * GET /stats/achievements - Get all user achievements (paginated)
    */
   app.get(

@@ -1,16 +1,23 @@
 /**
  * Authentication Routes
  *
- * GitHub OAuth flow for user authentication.
+ * GitHub OAuth flow and Auth0 SSO/SAML for user authentication.
  */
 
 import { z } from 'zod';
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
-import { isProduction } from '@/config';
+import { env, isProduction } from '@/config';
 import { ValidationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import {
+  isAuth0Configured,
+  getAuth0AuthorizeUrl,
+  exchangeAuth0Code,
+  getAuth0UserInfo,
+} from '@/services/auth0';
+import { getDb } from '@/services/db';
 import { getGitHubAuthUrl, authenticateWithGitHub } from '@/services/github';
 
 /**
@@ -212,4 +219,134 @@ export function authRoutes(app: FastifyInstance): void {
       });
     }
   );
+
+  // ─── Auth0 SSO Routes ───────────────────────────────────────────────
+
+  // GET /sso - Redirect to Auth0 for SSO login
+  app.get('/sso', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!isAuth0Configured()) {
+      return reply.status(501).send({
+        error: { code: 'SSO_NOT_CONFIGURED', message: 'SSO is not configured on this server' },
+      });
+    }
+
+    const querySchema = z.object({
+      connection: z.string().optional(),
+    });
+    const query = querySchema.safeParse(request.query);
+    const connection = query.success ? query.data.connection : undefined;
+
+    const state = crypto.randomUUID();
+
+    reply.setCookie('sso_state', state, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 600,
+      path: '/',
+    });
+
+    const authUrl = getAuth0AuthorizeUrl(state, connection);
+    logger.debug({ connection }, 'Redirecting to Auth0 SSO');
+
+    return reply.redirect(authUrl);
+  });
+
+  // GET /sso/callback - Auth0 SSO callback
+  app.get(
+    '/sso/callback',
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: '1 minute' },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!isAuth0Configured()) {
+        return reply.status(501).send({
+          error: { code: 'SSO_NOT_CONFIGURED', message: 'SSO is not configured' },
+        });
+      }
+
+      const callbackSchema = z.object({
+        code: z.string().min(1),
+        state: z.string().min(1),
+        error: z.string().optional(),
+        error_description: z.string().optional(),
+      });
+
+      const result = callbackSchema.safeParse(request.query);
+      if (!result.success) {
+        throw new ValidationError('Invalid SSO callback parameters');
+      }
+
+      const { code, state, error, error_description } = result.data;
+
+      /* Validate CSRF state */
+      const storedState = request.cookies.sso_state;
+      if (!state || !storedState || state !== storedState) {
+        logger.warn('SSO state mismatch');
+        return reply.status(400).send({
+          error: { code: 'INVALID_STATE', message: 'Invalid SSO state parameter' },
+        });
+      }
+      reply.clearCookie('sso_state');
+
+      if (error) {
+        logger.warn({ error, error_description }, 'Auth0 SSO error');
+        return reply.status(400).send({
+          error: { code: 'SSO_ERROR', message: error_description ?? error },
+        });
+      }
+
+      /* Exchange code for tokens and fetch user info */
+      const tokens = await exchangeAuth0Code(code);
+      const userInfo = await getAuth0UserInfo(tokens.access_token);
+
+      const db = getDb();
+
+      /* Find existing user by email or create a new one */
+      let user = await db.user.findFirst({
+        where: { email: userInfo.email },
+      });
+
+      if (!user) {
+        user = await db.user.create({
+          data: {
+            githubId: `auth0_${userInfo.sub}`,
+            username: userInfo.nickname ?? userInfo.email.split('@')[0] ?? 'user',
+            displayName: userInfo.name || null,
+            avatarUrl: userInfo.picture || null,
+            email: userInfo.email,
+            tier: 'TEAM',
+          },
+        });
+
+        logger.info({ userId: user.id, email: userInfo.email }, 'New SSO user created');
+      }
+
+      /* Generate JWT */
+      const token = app.jwt.sign(
+        {
+          userId: user.id,
+          username: user.username,
+          tier: user.tier,
+        },
+        { expiresIn: '7d' }
+      );
+
+      logger.info({ userId: user.id }, 'SSO authentication successful');
+
+      /* Redirect to web app with token */
+      const webUrl = new URL('/dashboard', env.WEB_APP_URL);
+      webUrl.searchParams.set('token', token);
+      return reply.redirect(webUrl.toString());
+    }
+  );
+
+  // GET /sso/status - Check if SSO is available
+  app.get('/sso/status', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send({
+      enabled: isAuth0Configured(),
+    });
+  });
 }

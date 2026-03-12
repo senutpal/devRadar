@@ -51,6 +51,15 @@ const envSchema = z
     SLACK_CLIENT_SECRET: z.string().trim().min(1).optional(),
     SLACK_SIGNING_SECRET: z.string().trim().min(1).optional(),
 
+    /* Auth0 SSO/SAML (Optional - TEAM tier) */
+    AUTH0_DOMAIN: z.string().trim().min(1).optional(),
+    AUTH0_CLIENT_ID: z.string().trim().min(1).optional(),
+    AUTH0_CLIENT_SECRET: z.string().trim().min(1).optional(),
+    AUTH0_CALLBACK_URL: z.string().url().optional(),
+
+    /* Resend Email (Optional) */
+    RESEND_API_KEY: z.string().trim().min(1).optional(),
+
     /* Razorpay Billing (Required for billing features) */
     RAZORPAY_KEY_ID: z.string().trim().min(1, 'RAZORPAY_KEY_ID is required'),
     RAZORPAY_KEY_SECRET: z.string().trim().min(1, 'RAZORPAY_KEY_SECRET is required'),
@@ -89,6 +98,23 @@ const envSchema = z
         message:
           'If enabling Slack integration, set SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, and SLACK_SIGNING_SECRET',
         path: ['SLACK_CLIENT_ID'],
+      });
+    }
+
+    const auth0Vars = [
+      val.AUTH0_DOMAIN,
+      val.AUTH0_CLIENT_ID,
+      val.AUTH0_CLIENT_SECRET,
+      val.AUTH0_CALLBACK_URL,
+    ];
+    const auth0AnySet = auth0Vars.some((v) => v != null);
+    const auth0AllSet = auth0Vars.every((v) => v != null);
+    if (auth0AnySet && !auth0AllSet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'If enabling Auth0 SSO, set AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, and AUTH0_CALLBACK_URL',
+        path: ['AUTH0_DOMAIN'],
       });
     }
   });

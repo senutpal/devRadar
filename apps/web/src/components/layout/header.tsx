@@ -106,7 +106,7 @@ function MagneticButton({
 }
 
 function UserMenu() {
-  const { user, signIn, signOut, isAuthenticated } = useAuth();
+  const { user, signIn, signOut, signInWithSSO, ssoEnabled, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -201,17 +201,24 @@ function UserMenu() {
   }
 
   return (
-    <MagneticButton href="#" onClick={signIn}>
-      <User className="w-4 h-4 mr-2" />
-      Sign In
-    </MagneticButton>
+    <div className="flex items-center gap-2">
+      <MagneticButton href="#" onClick={signIn}>
+        <User className="w-4 h-4 mr-2" />
+        Sign In
+      </MagneticButton>
+      {ssoEnabled && (
+        <Button variant="outline" size="sm" onClick={signInWithSSO} className="text-xs font-mono">
+          Enterprise SSO
+        </Button>
+      )}
+    </div>
   );
 }
 
 export function Header() {
   const { scrollY } = useScroll();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isAuthenticated, signIn } = useAuth();
+  const { isAuthenticated, signIn, signInWithSSO, ssoEnabled } = useAuth();
 
   const headerOpacity = useTransform(scrollY, [0, 50], [0, 1]);
 
@@ -345,17 +352,32 @@ export function Header() {
                     Dashboard
                   </Button>
                 ) : (
-                  <Button
-                    size="lg"
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-14 text-lg"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      signIn();
-                    }}
-                  >
-                    <Github className="w-5 h-5 mr-2" />
-                    Sign in with GitHub
-                  </Button>
+                  <>
+                    <Button
+                      size="lg"
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-14 text-lg"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        signIn();
+                      }}
+                    >
+                      <Github className="w-5 h-5 mr-2" />
+                      Sign in with GitHub
+                    </Button>
+                    {ssoEnabled && (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="w-full font-bold h-14 text-lg font-mono"
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          signInWithSSO();
+                        }}
+                      >
+                        Enterprise SSO
+                      </Button>
+                    )}
+                  </>
                 )}
 
                 <div className="flex items-center justify-center gap-6 pt-6">

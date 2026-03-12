@@ -16,8 +16,10 @@ model User {
   avatarUrl   String?
   email       String?
   tier        Tier     @default(FREE)
-  privacyMode Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  privacyMode  Boolean  @default(false)
+  customStatus String?  @db.VarChar(50)
+  ghostMode    Boolean  @default(false)
+  createdAt    DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Phase 5: Razorpay Billing
